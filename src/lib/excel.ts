@@ -62,7 +62,7 @@ export async function exportToExcel(records: TestRecord[]): Promise<Blob> {
       pasos: rec.pasosReproducir || '',
       resEsperado: rec.resultadoEsperado || '',
       resActual: rec.resultadoActual || '',
-      evidencia: rec.evidencia && !isDataUrl(rec.evidencia) ? rec.evidencia : (rec.evidencia ? 'Imagen embebida' : ''),
+      evidencia: rec.evidencia && rec.evidencia.length > 0 ? `${rec.evidencia.length} evidencia${rec.evidencia.length !== 1 ? 's' : ''}` : '',
       estado: rec.estado || '',
       notas: rec.notasDev || '',
       fecha: rec.fechaCreacion ? new Date(rec.fechaCreacion).toLocaleDateString('es-ES') : '',
@@ -73,43 +73,48 @@ export async function exportToExcel(records: TestRecord[]): Promise<Blob> {
   for (let i = 0; i < records.length; i++) {
     const rec = records[i];
     const rowNumber = i + 2; // header is row 1
-    if (rec.evidencia && isDataUrl(rec.evidencia)) {
-      try {
-        const loaded = await loadImageFromDataUrl(rec.evidencia);
-        if (!loaded) continue;
+    if (rec.evidencia && rec.evidencia.length > 0) {
+      // Process each evidence item
+      for (const evidence of rec.evidencia) {
+        if (isDataUrl(evidence)) {
+          try {
+            const loaded = await loadImageFromDataUrl(evidence);
+            if (!loaded) continue;
 
-        // Estimate column width in pixels. ExcelJS column.width is in 'characters' approx; use 7px per character as heuristic
-        const col = ws.columns[8];
-        const colCharWidth = (col && (col.width as number)) || 50;
-        const maxWidthPx = colCharWidth * 7;
+            // Estimate column width in pixels. ExcelJS column.width is in 'characters' approx; use 7px per character as heuristic
+            const col = ws.columns[8];
+            const colCharWidth = (col && (col.width as number)) || 50;
+            const maxWidthPx = colCharWidth * 7;
 
-        // Calculate scaled dimensions to fit within column width while preserving aspect ratio
-        const scale = Math.min(1, maxWidthPx / loaded.width);
-        const displayWidth = Math.round(loaded.width * scale);
-        const displayHeight = Math.round(loaded.height * scale);
+            // Calculate scaled dimensions to fit within column width while preserving aspect ratio
+            const scale = Math.min(1, maxWidthPx / loaded.width);
+            const displayWidth = Math.round(loaded.width * scale);
+            const displayHeight = Math.round(loaded.height * scale);
 
-        // Add image and set row height to accommodate it (convert px -> points by *0.75)
-        const imageId = workbook.addImage({ base64: loaded.base64, extension: loaded.ext });
-        ws.addImage(imageId, {
-          tl: { col: 8, row: rowNumber - 1 },
-          ext: { width: displayWidth, height: displayHeight },
-        });
+            // Add image and set row height to accommodate it (convert px -> points by *0.75)
+            const imageId = workbook.addImage({ base64: loaded.base64, extension: loaded.ext });
+            ws.addImage(imageId, {
+              tl: { col: 8, row: rowNumber - 1 },
+              ext: { width: displayWidth, height: displayHeight },
+            });
 
-        // Set row height (points). 1px ~ 0.75pt
-        try {
-          const row = ws.getRow(rowNumber);
-          row.height = displayHeight * 0.75;
-        } catch (err) {
-          // ignore
+            // Set row height (points). 1px ~ 0.75pt
+            try {
+              const row = ws.getRow(rowNumber);
+              row.height = Math.max(row.height || 0, displayHeight * 0.75);
+            } catch (err) {
+              // ignore
+            }
+          } catch (err) {
+            // eslint-disable-next-line no-console
+            console.error('Failed to embed image for record', rec.id, err);
+          }
+        } else if (typeof evidence === 'string' && evidence.startsWith('http')) {
+          // For URL links, add hyperlink to the evidencia cell
+          const cell = ws.getCell(`I${rowNumber}`);
+          cell.value = { text: evidence, hyperlink: evidence } as any;
         }
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error('Failed to embed image for record', rec.id, err);
       }
-    } else if (rec.evidencia && typeof rec.evidencia === 'string' && rec.evidencia.startsWith('http')) {
-      // For URL links, add hyperlink to the evidencia cell
-      const cell = ws.getCell(`I${rowNumber}`);
-      cell.value = { text: rec.evidencia, hyperlink: rec.evidencia } as any;
     }
   }
 

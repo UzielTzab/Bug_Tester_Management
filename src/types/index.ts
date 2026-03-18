@@ -14,7 +14,7 @@ export interface TestRecord {
   pasosReproducir: string;
   resultadoEsperado: string;
   resultadoActual: string;
-  evidencia: string;
+  evidencia: string[];
   estado: Estado;
   notasDev: string;
   fechaCreacion: string;
