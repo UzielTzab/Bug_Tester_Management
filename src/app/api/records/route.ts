@@ -1,0 +1,30 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getAllRecords, addRecord, deleteAllRecords } from '@/lib/db';
+
+export async function GET() {
+  try {
+    const records = getAllRecords();
+    return NextResponse.json(records);
+  } catch (error) {
+    return NextResponse.json({ error: 'Error al obtener registros' }, { status: 500 });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const newRecord = addRecord(body);
+    return NextResponse.json(newRecord, { status: 201 });
+  } catch (error) {
+    return NextResponse.json({ error: 'Error al crear registro' }, { status: 500 });
+  }
+}
+
+export async function DELETE() {
+  try {
+    deleteAllRecords();
+    return NextResponse.json({ message: 'Todos los registros han sido eliminados' });
+  } catch (error) {
+    return NextResponse.json({ error: 'Error al eliminar registros' }, { status: 500 });
+  }
+}
