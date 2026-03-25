@@ -3,31 +3,8 @@
 import { useState, useEffect, useRef, type ChangeEvent, type ClipboardEvent, type FormEvent } from 'react';
 import { TestRecord, TipoError, Estado, Actor, DeviceType } from '@/types';
 import { downloadExcel } from '@/lib/excel';
+import { TIPOS_ERROR, ESTADOS, ACTORES, DISPOSITIVOS, tipoColors, estadoColors, actorColors } from '@/lib/config';
 
-const TIPOS_ERROR: TipoError[] = ['Diseño', 'Funcionalidad', 'Rendimiento', 'Seguridad'];
-const ESTADOS: Estado[] = ['Pendiente', 'En Progreso', 'Corregido', 'No es un Error'];
-const ACTORES: Actor[] = ['Invitado', 'Admin', 'Super Admin'];
-const DISPOSITIVOS: DeviceType[] = ['Mobile', 'Desktop'];
-
-const tipoColors: Record<TipoError, string> = {
-  'Diseño': 'bg-pink-600 text-white',
-  'Funcionalidad': 'bg-red-600 text-white',
-  'Rendimiento': 'bg-yellow-500 text-black',
-  'Seguridad': 'bg-purple-600 text-white',
-};
-
-const estadoColors: Record<Estado, string> = {
-  'Pendiente': 'bg-gray-500 text-white',
-  'En Progreso': 'bg-blue-600 text-white',
-  'Corregido': 'bg-green-600 text-white',
-  'No es un Error': 'bg-purple-600 text-white',
-};
-
-const actorColors: Record<Actor, string> = {
-  'Invitado': 'bg-slate-500 text-white',
-  'Admin': 'bg-indigo-500 text-white',
-  'Super Admin': 'bg-pink-600 text-white',
-};
 
 export default function Dashboard() {
   const [records, setRecords] = useState<TestRecord[]>([]);
@@ -45,7 +22,7 @@ export default function Dashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
-    actor: 'Invitado' as Actor,
+    actor: 'Cliente' as Actor,
     modulo: '',
     tipoError: 'Funcionalidad' as TipoError,
     device: 'Mobile' as DeviceType,
@@ -79,7 +56,7 @@ export default function Dashboard() {
 
   const resetForm = () => {
     setFormData({
-      actor: 'Invitado',
+      actor: 'Cliente',
       modulo: '',
       tipoError: 'Funcionalidad',
       device: 'Mobile',
@@ -161,7 +138,7 @@ export default function Dashboard() {
 
   const handleEdit = (record: TestRecord) => {
     setFormData({
-      actor: record.actor || 'Invitado',
+      actor: record.actor || 'Cliente',
       modulo: record.modulo || '',
       tipoError: record.tipoError || 'Funcionalidad',
       device: record.device || 'Mobile',

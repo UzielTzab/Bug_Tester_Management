@@ -1,6 +1,6 @@
 export type TipoError = 'Diseño' | 'Funcionalidad' | 'Rendimiento' | 'Seguridad';
 export type Estado = 'Pendiente' | 'En Progreso' | 'Corregido' | 'No es un Error';
-export type Actor = 'Invitado' | 'Admin' | 'Super Admin';
+export type Actor = 'Cliente' | 'Proveedor';
 export type DeviceType = 'Mobile' | 'Desktop';
 
 export interface TestRecord {
