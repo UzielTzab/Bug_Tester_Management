@@ -11,8 +11,10 @@ import { migrateRecordsToProject, getRecordsByProject, getProjects, addProject, 
 export default function Dashboard() {
   const [records, setRecords] = useState<TestRecord[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [projectBugCounts, setProjectBugCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingProject, setIsLoadingProject] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -94,6 +96,14 @@ export default function Dashboard() {
     try {
       const loadedProjects = await getProjects();
       setProjects(loadedProjects);
+      
+      // Cargar conteos de bugs para cada proyecto
+      const counts: Record<string, number> = {};
+      for (const project of loadedProjects) {
+        const projectRecords = await getRecordsByProject(project.id);
+        counts[project.id] = projectRecords.length;
+      }
+      setProjectBugCounts(counts);
     } catch (error) {
       console.error('Error loading projects:', error);
     }
@@ -113,6 +123,7 @@ export default function Dashboard() {
       });
       
       setProjects([...projects, newProject]);
+      setProjectBugCounts({...projectBugCounts, [newProject.id]: 0});
       setCurrentProjectId(newProject.id);
       setShowNewProjectModal(false);
       setNewProjectData({
@@ -129,6 +140,7 @@ export default function Dashboard() {
   };
 
   const fetchRecords = async () => {
+    setIsLoadingProject(true);
     try {
       const res = await fetch('/api/records');
       const data = await res.json();
@@ -140,6 +152,7 @@ export default function Dashboard() {
       console.error('Error fetching records:', err);
     } finally {
       setLoading(false);
+      setIsLoadingProject(false);
     }
   };
 
@@ -216,6 +229,9 @@ export default function Dashboard() {
         });
       }
       await fetchRecords();
+      // Recargar conteos después de agregar/editar
+      const projectRecords = await getRecordsByProject(currentProjectId);
+      setProjectBugCounts({...projectBugCounts, [currentProjectId]: projectRecords.length});
       resetForm();
       setShowForm(false);
     } catch (error) {
@@ -250,7 +266,10 @@ export default function Dashboard() {
     setIsLoading(true);
     try {
       await fetch(`/api/records/${id}`, { method: 'DELETE' });
-      fetchRecords();
+      await fetchRecords();
+      // Recargar conteos después de eliminar
+      const projectRecords = await getRecordsByProject(currentProjectId);
+      setProjectBugCounts({...projectBugCounts, [currentProjectId]: projectRecords.length});
     } catch (error) {
       console.error('Error deleting record:', error);
     } finally {
@@ -263,7 +282,14 @@ export default function Dashboard() {
     setIsLoading(true);
     try {
       await fetch('/api/records', { method: 'DELETE' });
-      fetchRecords();
+      await fetchRecords();
+      // Recargar todos los conteos
+      const counts: Record<string, number> = {};
+      for (const project of projects) {
+        const projectRecords = await getRecordsByProject(project.id);
+        counts[project.id] = projectRecords.length;
+      }
+      setProjectBugCounts(counts);
       setShowDeleteAllModal(false);
     } catch (error) {
       console.error('Error deleting all records:', error);
@@ -345,29 +371,42 @@ export default function Dashboard() {
               Cargando proyectos...
             </div>
           ) : (
-            projects.map((project) => (
-              <button
-                key={project.id}
-                onClick={() => setCurrentProjectId(project.id)}
-                className={`w-full text-left p-4 rounded-xl border-3 border-gray-800 font-bold transition-all ${ 
-                  currentProjectId === project.id
-                    ? `bg-gradient-to-r ${project.color} text-white shadow-lg scale-105`
-                    : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">{project.icon}</span>
-                  <div>
-                    <div className="font-bold">{project.name}</div>
-                    {project.description && (
-                      <div className={`text-xs ${currentProjectId === project.id ? 'text-white/80' : 'text-gray-600'}`}>
-                        {project.description}
+            projects.map((project) => {
+              const bugCount = projectBugCounts[project.id] ?? 0;
+              return (
+                <button
+                  key={project.id}
+                  onClick={() => setCurrentProjectId(project.id)}
+                  className={`w-full text-left p-4 rounded-xl border-3 border-gray-800 font-bold transition-all group ${ 
+                    currentProjectId === project.id
+                      ? `bg-gradient-to-r ${project.color} text-white shadow-lg scale-105`
+                      : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2 flex-1">
+                      <span className="text-2xl">{project.icon}</span>
+                      <div>
+                        <div className="font-bold">{project.name}</div>
+                        {project.description && (
+                          <div className={`text-xs ${currentProjectId === project.id ? 'text-white/80' : 'text-gray-600'}`}>
+                            {project.description}
+                          </div>
+                        )}
                       </div>
-                    )}
+                    </div>
+                    {/* Badge de conteo */}
+                    <div className={`px-2 py-1 rounded-lg text-xs font-bold whitespace-nowrap ml-2 ${
+                      currentProjectId === project.id
+                        ? 'bg-white/30 text-white'
+                        : 'bg-gray-300 text-gray-900'
+                    }`}>
+                      {bugCount} 🐛
+                    </div>
                   </div>
-                </div>
-              </button>
-            ))
+                </button>
+              );
+            })
           )}
         </div>
 
@@ -670,7 +709,42 @@ export default function Dashboard() {
 
         {/* Cards Grid */}
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {getFilteredRecords().length === 0 ? (
+          {isLoadingProject ? (
+            // Mostrar skeletons mientras carga
+            <>
+              {[1, 2, 3, 4].map((idx) => (
+                <div
+                  key={`skeleton-${idx}`}
+                  className="relative flex flex-col bg-gradient-to-br from-gray-200 to-gray-300 rounded-2xl shadow-lg p-4 min-h-[240px] border-3 border-gray-400 animate-pulse"
+                >
+                  {/* Estado badge skeleton */}
+                  <div className="absolute top-2 right-2 h-6 w-20 bg-gray-400 rounded-full"></div>
+
+                  {/* Imagen skeleton */}
+                  <div className="flex justify-center items-center mb-3 h-24 bg-gray-400 rounded-xl border-2 border-gray-400 animate-pulse"></div>
+
+                  {/* Título skeleton */}
+                  <div className="h-5 bg-gray-400 rounded mb-3 w-3/4"></div>
+
+                  {/* Info skeleton */}
+                  <div className="space-y-2 mb-3">
+                    <div className="h-4 bg-gray-400 rounded w-1/2"></div>
+                    <div className="h-4 bg-gray-400 rounded w-2/3"></div>
+                  </div>
+
+                  {/* Módulo skeleton */}
+                  <div className="h-4 bg-gray-400 rounded mb-3 w-1/2"></div>
+
+                  {/* Acciones skeleton */}
+                  <div className="flex gap-3 mt-auto pt-2 border-t-2 border-gray-400">
+                    <div className="h-6 w-6 bg-gray-400 rounded"></div>
+                    <div className="h-6 w-6 bg-gray-400 rounded"></div>
+                    <div className="ml-auto h-8 w-20 bg-gray-400 rounded"></div>
+                  </div>
+                </div>
+              ))}
+            </>
+          ) : getFilteredRecords().length === 0 ? (
             <div className="col-span-full text-center text-gray-900 font-bold py-12 bg-gradient-to-br from-blue-100 to-purple-100 rounded-2xl border-4 border-gray-800 shadow-lg">
               {records.length === 0 ? 'No hay registros. ¡Haz clic en "Nuevo Bug" para empezar!' : 'No se encontraron registros con los filtros aplicados.'}
             </div>
