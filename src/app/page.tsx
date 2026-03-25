@@ -1,16 +1,20 @@
 'use client';
 
 import { useState, useEffect, useRef, type ChangeEvent, type ClipboardEvent, type FormEvent } from 'react';
-import { TestRecord, TipoError, Estado, Actor, DeviceType } from '@/types';
+import { TestRecord, TipoError, Estado, Actor, DeviceType, Project } from '@/types';
 import { downloadExcel } from '@/lib/excel';
 import { TIPOS_ERROR, ESTADOS, ACTORES, DISPOSITIVOS, tipoColors, estadoColors, actorColors } from '@/lib/config';
+import { PROJECTS, DEFAULT_PROJECT_ID, getProject } from '@/lib/projects';
+import { migrateRecordsToProject, getRecordsByProject, getProjects, addProject, createProjectWithId } from '@/lib/db';
 
 
 export default function Dashboard() {
   const [records, setRecords] = useState<TestRecord[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [imageModal, setImageModal] = useState<string | null>(null);
   const [recordModal, setRecordModal] = useState<TestRecord | null>(null);
@@ -20,7 +24,15 @@ export default function Dashboard() {
   const [expandedTitle, setExpandedTitle] = useState(false);
   const [filterStatus, setFilterStatus] = useState<Estado | 'Todos'>('Todos');
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentProjectId, setCurrentProjectId] = useState<string>(DEFAULT_PROJECT_ID);
+  const [migrationDone, setMigrationDone] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [newProjectData, setNewProjectData] = useState({
+    name: '',
+    description: '',
+    icon: '📁',
+    color: 'from-blue-500 to-cyan-500',
+  });
   const [formData, setFormData] = useState({
     actor: 'Cliente' as Actor,
     modulo: '',
@@ -37,15 +49,92 @@ export default function Dashboard() {
   });
 
   useEffect(() => {
-    fetchRecords();
+    // Ejecutar migración y cargar proyectos UNA SOLA VEZ
+    const runInitialization = async () => {
+      if (!migrationDone) {
+        try {
+          // Asegurar que el proyecto "Sumo" existe
+          const existingProjects = await getProjects();
+          const sumoExists = existingProjects.some((p) => p.id === 'sumo');
+          
+          if (!sumoExists) {
+            await createProjectWithId('sumo', {
+              name: 'Proyecto Sumo',
+              description: 'Proyecto principal con todos los registros de bugs',
+              color: 'from-blue-500 to-cyan-500',
+              icon: '🔵',
+            });
+          }
+          
+          // Migrar registros antiguos a 'sumo'
+          await migrateRecordsToProject(DEFAULT_PROJECT_ID);
+          setMigrationDone(true);
+        } catch (error) {
+          console.error('Initialization error:', error);
+        }
+      }
+      
+      // Cargar proyectos y registros
+      await loadProjects();
+      await fetchRecords();
+    };
+    runInitialization();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Recargar registros cuando cambia el proyecto
+  useEffect(() => {
+    if (migrationDone) {
+      fetchRecords();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentProjectId]);
+
+  const loadProjects = async () => {
+    try {
+      const loadedProjects = await getProjects();
+      setProjects(loadedProjects);
+    } catch (error) {
+      console.error('Error loading projects:', error);
+    }
+  };
+
+  const handleCreateProject = async (e: FormEvent) => {
+    e.preventDefault();
+    if (isLoading || !newProjectData.name.trim()) return;
+    
+    setIsLoading(true);
+    try {
+      const newProject = await addProject({
+        name: newProjectData.name,
+        description: newProjectData.description,
+        color: newProjectData.color,
+        icon: newProjectData.icon,
+      });
+      
+      setProjects([...projects, newProject]);
+      setCurrentProjectId(newProject.id);
+      setShowNewProjectModal(false);
+      setNewProjectData({
+        name: '',
+        description: '',
+        icon: '📁',
+        color: 'from-blue-500 to-cyan-500',
+      });
+    } catch (error) {
+      console.error('Error creating project:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const fetchRecords = async () => {
     try {
       const res = await fetch('/api/records');
       const data = await res.json();
-      const sortedData = (data || []).sort((a: TestRecord, b: TestRecord) => new Date(b.fechaCreacion).getTime() - new Date(a.fechaCreacion).getTime());
+      // Filtrar por proyecto actual y ordenar
+      const filteredData = (data || []).filter((record: TestRecord) => record.projectId === currentProjectId);
+      const sortedData = filteredData.sort((a: TestRecord, b: TestRecord) => new Date(b.fechaCreacion).getTime() - new Date(a.fechaCreacion).getTime());
       setRecords(sortedData);
     } catch (err) {
       console.error('Error fetching records:', err);
@@ -112,7 +201,7 @@ export default function Dashboard() {
     if (isLoading) return;
     setIsLoading(true);
     try {
-      const payload = { ...formData } as any;
+      const payload = { ...formData, projectId: currentProjectId } as any;
       if (editingId) {
         await fetch(`/api/records/${editingId}`, {
           method: 'PATCH',
@@ -243,8 +332,58 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex">
+      {/* Sidebar */}
+      <div className="w-64 bg-white border-r-4 border-gray-800 shadow-lg p-6 fixed h-screen overflow-y-auto">
+        <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+          🎯 Proyectos
+        </h2>
+        
+        <div className="space-y-3 mb-6">
+          {projects.length === 0 ? (
+            <div className="text-sm text-gray-600 p-3 bg-gray-100 rounded-lg">
+              Cargando proyectos...
+            </div>
+          ) : (
+            projects.map((project) => (
+              <button
+                key={project.id}
+                onClick={() => setCurrentProjectId(project.id)}
+                className={`w-full text-left p-4 rounded-xl border-3 border-gray-800 font-bold transition-all ${ 
+                  currentProjectId === project.id
+                    ? `bg-gradient-to-r ${project.color} text-white shadow-lg scale-105`
+                    : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">{project.icon}</span>
+                  <div>
+                    <div className="font-bold">{project.name}</div>
+                    {project.description && (
+                      <div className={`text-xs ${currentProjectId === project.id ? 'text-white/80' : 'text-gray-600'}`}>
+                        {project.description}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+
+        {/* Botón para crear nuevo proyecto */}
+        <button
+          onClick={() => setShowNewProjectModal(true)}
+          disabled={isLoading}
+          className="w-full p-3 bg-gradient-to-r from-green-300 to-emerald-300 hover:from-green-400 hover:to-emerald-400 disabled:bg-gray-400 text-green-900 disabled:text-gray-700 rounded-xl border-3 border-gray-800 font-bold transition-all shadow-md"
+        >
+          ➕ Nuevo Proyecto
+        </button>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 ml-64 p-6">
+        <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-8 bg-gradient-to-r from-indigo-200 to-purple-200 p-6 rounded-2xl border-4 border-gray-800 shadow-lg">
           <h1 className="text-3xl font-bold text-gray-900">🐛 Registro de Bugs - QA Dashboard</h1>
@@ -903,9 +1042,114 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* Modal para crear nuevo proyecto */}
+        {showNewProjectModal && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4"
+            onClick={() => !isLoading && setShowNewProjectModal(false)}
+          >
+            <div
+              className="bg-gradient-to-br from-green-100 to-emerald-100 rounded-2xl shadow-2xl p-6 sm:p-8 text-gray-900 max-w-md w-full border-4 border-gray-800"
+              onClick={e => e.stopPropagation()}
+            >
+              <h3 className="text-2xl font-bold mb-6 text-green-900">✨ Crear Nuevo Proyecto</h3>
+              
+              <form onSubmit={handleCreateProject} className="space-y-4">
+                {/* Nombre del proyecto */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-900 mb-2">Nombre del Proyecto</label>
+                  <input
+                    type="text"
+                    value={newProjectData.name}
+                    onChange={(e) => setNewProjectData({...newProjectData, name: e.target.value})}
+                    placeholder="ej: Proyecto Beta"
+                    disabled={isLoading}
+                    className="w-full px-3 py-2 bg-white border-2 border-gray-800 rounded-lg text-gray-900 font-medium placeholder-gray-500 disabled:bg-gray-300"
+                    maxLength={50}
+                    required
+                  />
+                </div>
+
+                {/* Descripción */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-900 mb-2">Descripción (opcional)</label>
+                  <textarea
+                    value={newProjectData.description}
+                    onChange={(e) => setNewProjectData({...newProjectData, description: e.target.value})}
+                    placeholder="Descripción breve del proyecto..."
+                    disabled={isLoading}
+                    className="w-full px-3 py-2 bg-white border-2 border-gray-800 rounded-lg text-gray-900 font-medium placeholder-gray-500 disabled:bg-gray-300 resize-none"
+                    rows={2}
+                    maxLength={100}
+                  />
+                </div>
+
+                {/* Icono */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-900 mb-2">Icono</label>
+                  <input
+                    type="text"
+                    value={newProjectData.icon}
+                    onChange={(e) => setNewProjectData({...newProjectData, icon: e.target.value})}
+                    placeholder="Copia un emoji aquí"
+                    disabled={isLoading}
+                    className="w-full px-3 py-2 bg-white border-2 border-gray-800 rounded-lg text-gray-900 font-medium text-2xl text-center disabled:bg-gray-300"
+                    maxLength={1}
+                  />
+                </div>
+
+                {/* Color */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-900 mb-2">Color Degradado</label>
+                  <select
+                    value={newProjectData.color}
+                    onChange={(e) => setNewProjectData({...newProjectData, color: e.target.value})}
+                    disabled={isLoading}
+                    className="w-full px-3 py-2 bg-white border-2 border-gray-800 rounded-lg text-gray-900 font-medium disabled:bg-gray-300"
+                  >
+                    <option value="from-blue-500 to-cyan-500">Azul - Cian</option>
+                    <option value="from-purple-500 to-pink-500">Púrpura - Rosa</option>
+                    <option value="from-green-500 to-emerald-500">Verde - Menta</option>
+                    <option value="from-yellow-400 to-orange-500">Amarillo - Naranja</option>
+                    <option value="from-red-500 to-pink-500">Rojo - Rosa</option>
+                    <option value="from-indigo-500 to-blue-500">Índigo - Azul</option>
+                  </select>
+                </div>
+
+                {/* Botones */}
+                <div className="flex gap-4 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowNewProjectModal(false)}
+                    disabled={isLoading}
+                    className="flex-1 px-4 py-3 bg-gradient-to-r from-gray-300 to-gray-400 hover:from-gray-400 hover:to-gray-500 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed rounded-lg font-bold text-gray-900 border-2 border-gray-800 transition shadow-md"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isLoading || !newProjectData.name.trim()}
+                    className="flex-1 px-4 py-3 bg-gradient-to-r from-green-400 to-emerald-400 hover:from-green-500 hover:to-emerald-500 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed rounded-lg font-bold text-white disabled:text-gray-700 border-2 border-gray-800 transition shadow-md flex items-center justify-center gap-2"
+                  >
+                    {isLoading ? (
+                      <>
+                        <div className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        Creando...
+                      </>
+                    ) : (
+                      '✨ Crear Proyecto'
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
         {/* Footer */}
         <div className="mt-8 text-center text-gray-700 text-sm font-semibold">
           QA Bug Tracker Dashboard • {new Date().getFullYear()}
+        </div>
         </div>
       </div>
     </div>

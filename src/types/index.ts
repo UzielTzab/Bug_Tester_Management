@@ -5,6 +5,7 @@ export type DeviceType = 'Mobile' | 'Desktop';
 
 export interface TestRecord {
   id: string;
+  projectId: string; // Nuevo: ID del proyecto al que pertenece
   actor: Actor;
   modulo: string;
   tipoError?: TipoError;
@@ -20,7 +21,17 @@ export interface TestRecord {
   fechaCreacion: string;
 }
 
+export interface Project {
+  id: string;
+  name: string;
+  description?: string;
+  color: string; // Color de identidad
+  icon: string; // Emoji o icono
+  createdAt: string;
+}
+
 export interface TestDatabase {
   records: TestRecord[];
   lastId: number;
 }
+
