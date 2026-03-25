@@ -8,11 +8,8 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await request.json();
-    const updated = updateRecord(id, body);
-    if (!updated) {
-      return NextResponse.json({ error: 'Registro no encontrado' }, { status: 404 });
-    }
-    return NextResponse.json(updated);
+    await updateRecord(id, body);
+    return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json({ error: 'Error al actualizar registro' }, { status: 500 });
   }
@@ -24,10 +21,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const deleted = deleteRecord(id);
-    if (!deleted) {
-      return NextResponse.json({ error: 'Registro no encontrado' }, { status: 404 });
-    }
+    await deleteRecord(id);
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json({ error: 'Error al eliminar registro' }, { status: 500 });

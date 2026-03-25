@@ -1,62 +1,81 @@
-import fs from 'fs';
-import path from 'path';
-import { TestDatabase, TestRecord } from '@/types';
+import { database } from './firebase';
+import { ref, get, set, push, update, remove, query, limitToFirst } from 'firebase/database';
+import { TestRecord } from '@/types';
 
-const DB_PATH = path.join(process.cwd(), 'src', 'data', 'database.json');
-
-export function readDatabase(): TestDatabase {
+export async function getAllRecords(): Promise<TestRecord[]> {
   try {
-    const data = fs.readFileSync(DB_PATH, 'utf-8');
-    return JSON.parse(data);
-  } catch {
-    return { records: [], lastId: 0 };
+    const recordsRef = ref(database, 'records');
+    const snapshot = await get(recordsRef);
+    
+    if (!snapshot.exists()) {
+      return [];
+    }
+    
+    const data = snapshot.val();
+    return Object.entries(data).map(([id, record]: [string, any]) => ({
+      ...record,
+      id,
+    }));
+  } catch (error) {
+    console.error('Error fetching records:', error);
+    return [];
   }
 }
 
-export function writeDatabase(data: TestDatabase): void {
-  fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2), 'utf-8');
+export async function addRecord(record: Omit<TestRecord, 'id' | 'fechaCreacion'>): Promise<TestRecord> {
+  try {
+    const recordsRef = ref(database, 'records');
+    const newRecordRef = push(recordsRef);
+    const recordId = newRecordRef.key || `BUG-${Date.now()}`;
+    
+    const newRecord: TestRecord = {
+      ...record,
+      id: recordId,
+      fechaCreacion: new Date().toISOString(),
+    };
+    
+    await set(newRecordRef, newRecord);
+    return newRecord;
+  } catch (error) {
+    console.error('Error adding record:', error);
+    throw error;
+  }
 }
 
-export function getAllRecords(): TestRecord[] {
-  const db = readDatabase();
-  return db.records;
+export async function updateRecord(id: string, updates: Partial<TestRecord>): Promise<void> {
+  try {
+    const recordRef = ref(database, `records/${id}`);
+    // Get current record first
+    const snapshot = await get(recordRef);
+    if (!snapshot.exists()) {
+      throw new Error('Record not found');
+    }
+    // Merge updates with existing data
+    const currentData = snapshot.val();
+    const updatedData = { ...currentData, ...updates };
+    await set(recordRef, updatedData);
+  } catch (error) {
+    console.error('Error updating record:', error);
+    throw error;
+  }
 }
 
-export function addRecord(record: Omit<TestRecord, 'id' | 'fechaCreacion'>): TestRecord {
-  const db = readDatabase();
-  const newId = db.lastId + 1;
-  const newRecord: TestRecord = {
-    ...record,
-    id: `BUG-${String(newId).padStart(4, '0')}`,
-    fechaCreacion: new Date().toISOString(),
-  };
-  db.records.push(newRecord);
-  db.lastId = newId;
-  writeDatabase(db);
-  return newRecord;
+export async function deleteRecord(id: string): Promise<void> {
+  try {
+    const recordRef = ref(database, `records/${id}`);
+    await remove(recordRef);
+  } catch (error) {
+    console.error('Error deleting record:', error);
+    throw error;
+  }
 }
 
-export function updateRecord(id: string, updates: Partial<TestRecord>): TestRecord | null {
-  const db = readDatabase();
-  const index = db.records.findIndex((r) => r.id === id);
-  if (index === -1) return null;
-  db.records[index] = { ...db.records[index], ...updates };
-  writeDatabase(db);
-  return db.records[index];
-}
-
-export function deleteRecord(id: string): boolean {
-  const db = readDatabase();
-  const index = db.records.findIndex((r) => r.id === id);
-  if (index === -1) return false;
-  db.records.splice(index, 1);
-  writeDatabase(db);
-  return true;
-}
-
-export function deleteAllRecords(): boolean {
-  const db = readDatabase();
-  db.records = [];
-  writeDatabase(db);
-  return true;
+export async function deleteAllRecords(): Promise<void> {
+  try {
+    const recordsRef = ref(database, 'records');
+    await remove(recordsRef);
+  } catch (error) {
+    console.error('Error deleting all records:', error);
+    throw error;
+  }
 }
