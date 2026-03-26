@@ -6,3 +6,4 @@ export { Input } from './Input';
 export { Spinner } from './Spinner';
 export { SkeletonLoader } from './SkeletonLoader';
 export { Modal } from './Modal';
+export { ImageEditor } from './ImageEditor';

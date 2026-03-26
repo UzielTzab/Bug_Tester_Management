@@ -6,7 +6,7 @@ import { downloadExcel } from '@/lib/excel';
 import { TIPOS_ERROR, ESTADOS, ACTORES, DISPOSITIVOS, tipoColors, estadoColors, actorColors } from '@/lib/config';
 import { PROJECTS, DEFAULT_PROJECT_ID, getProject } from '@/lib/projects';
 import { migrateRecordsToProject, getRecordsByProject, getProjects, addProject, createProjectWithId } from '@/lib/db';
-import { Button, Card, Badge, Input, Modal, Spinner, SkeletonLoader } from '@/components';
+import { Button, Card, Badge, Input, Modal, Spinner, SkeletonLoader, ImageEditor } from '@/components';
 import {
   PlusIcon,
   TrashIcon,
@@ -32,6 +32,8 @@ export default function Dashboard() {
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [imageModal, setImageModal] = useState<string | null>(null);
+  const [showImageEditor, setShowImageEditor] = useState(false);
+  const [editingImageIndex, setEditingImageIndex] = useState<number | null>(null);
   const [recordModal, setRecordModal] = useState<TestRecord | null>(null);
   const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
@@ -41,7 +43,7 @@ export default function Dashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentProjectId, setCurrentProjectId] = useState<string>(DEFAULT_PROJECT_ID);
   const [migrationDone, setMigrationDone] = useState(false);
-  const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
+  const [viewMode, setViewMode] = useState<'cards' | 'list'>('list');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [newProjectData, setNewProjectData] = useState({
     name: '',
@@ -223,6 +225,28 @@ export default function Dashboard() {
     }
   };
 
+  const handleEditImage = (imageIndex: number) => {
+    setEditingImageIndex(imageIndex);
+    setShowImageEditor(true);
+  };
+
+  const handleSaveEditedImage = (editedImage: string) => {
+    if (editingImageIndex !== null) {
+      setFormData((prev) => {
+        const newEvidencia = [...prev.evidencia];
+        newEvidencia[editingImageIndex] = editedImage;
+        return { ...prev, evidencia: newEvidencia };
+      });
+    }
+    setShowImageEditor(false);
+    setEditingImageIndex(null);
+  };
+
+  const handleCancelImageEdit = () => {
+    setShowImageEditor(false);
+    setEditingImageIndex(null);
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (isLoading) return;
@@ -375,7 +399,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-white flex flex-col md:flex-row overflow-x-hidden">
+    <div className="min-h-screen flex flex-col md:flex-row overflow-x-hidden" style={{ backgroundColor: 'var(--bg-light-gray)' }}>
       {/* Sidebar */}
       <div className="w-full md:w-64 bg-white border-b md:border-r border-gray-200 shadow-md md:shadow-lg p-4 md:p-6 md:fixed md:h-screen md:overflow-y-auto">
         <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
@@ -629,10 +653,15 @@ export default function Dashboard() {
                     className="hidden"
                   />
                   <Button
+                    type="button"
                     variant="warning"
                     size="sm"
                     icon={<PhotoIcon className="w-4 h-4" />}
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      fileInputRef.current?.click();
+                    }}
                   >
                     Agregar Imagen
                   </Button>
@@ -653,14 +682,24 @@ export default function Dashboard() {
                           onClick={() => setImageModal(img)}
                           title="Clic para ver en grande"
                         />
-                        <button
-                          type="button"
-                          onClick={() => setFormData({ ...formData, evidencia: formData.evidencia.filter((_, i) => i !== idx) })}
-                          className="absolute top-1 right-1 bg-red-600 hover:bg-red-700 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition"
-                          title="Eliminar imagen"
-                        >
-                          ✕
-                        </button>
+                        <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                          <button
+                            type="button"
+                            onClick={() => handleEditImage(idx)}
+                            className="bg-blue-600 hover:bg-blue-700 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs transition"
+                            title="Editar imagen"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, evidencia: formData.evidencia.filter((_, i) => i !== idx) })}
+                            className="bg-red-600 hover:bg-red-700 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs transition"
+                            title="Eliminar imagen"
+                          >
+                            ✕
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -819,7 +858,7 @@ export default function Dashboard() {
             {isLoadingProject ? (
               <>
                 {[1, 2, 3, 4].map((idx) => (
-                  <SkeletonLoader key={`skeleton-list-${idx}`} count={1} height="h-16" className="rounded-lg" />
+                  <SkeletonLoader key={`skeleton-list-${idx}`} count={1} height="h-20" className="rounded-lg" />
                 ))}
               </>
             ) : getFilteredRecords().length === 0 ? (
@@ -830,30 +869,31 @@ export default function Dashboard() {
               getFilteredRecords().map((record) => (
                 <Card 
                   key={record.id} 
-                  className="hover:shadow-md hover:bg-gray-50 cursor-pointer transition-all p-3 md:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 overflow-hidden"
+                  className="cursor-pointer transition-all p-4 md:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 overflow-hidden bg-white border border-gray-200"
                   onClick={() => setRecordModal(record)}
                 >
                   {/* Imagen pequeña y título */}
-                  <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0 w-full sm:w-auto">
+                  <div className="flex items-start gap-4 md:gap-5 flex-1 min-w-0 w-full sm:w-auto">
                     {record.evidencia && record.evidencia.length > 0 && isImageData(record.evidencia[0]) ? (
                       <img 
                         src={record.evidencia[0]} 
                         alt="Evidencia" 
-                        className="h-10 md:h-12 w-10 md:w-12 object-cover rounded-lg border border-gray-300 flex-shrink-0"
+                        className="h-14 md:h-16 w-14 md:w-16 object-cover rounded-lg border border-gray-300 flex-shrink-0"
                         onClick={(e) => { e.stopPropagation(); setImageModal(record.evidencia[0]); }}
                       />
                     ) : (
-                      <div className="h-10 md:h-12 w-10 md:w-12 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <div className="h-14 md:h-16 w-14 md:w-16 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
                         <span className="text-xs text-gray-600">–</span>
                       </div>
                     )}
                     
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-xs md:text-sm text-gray-900 truncate">{record.titulo || '-'}</h3>
-                      <div className="flex gap-1 mt-1 flex-wrap">
-                        {record.tipoError && <Badge variant="neutral" className="text-xs">{record.tipoError}</Badge>}
-                        {record.device && <Badge variant="neutral" className="text-xs">{record.device}</Badge>}
-                        {record.modulo && <Badge variant="neutral" className="text-xs hidden sm:inline-block">{record.modulo}</Badge>}
+                      <h3 className="font-bold text-base md:text-lg text-gray-900 mb-2">{record.titulo || '-'}</h3>
+                      <div className="flex gap-2 mt-2 flex-wrap">
+                        {record.tipoError && <Badge variant="neutral" className="text-xs bg-purple-100 text-purple-800">{record.tipoError}</Badge>}
+                        {record.device && <Badge variant="neutral" className="text-xs bg-purple-200 text-purple-900">{record.device}</Badge>}
+                        {record.actor && <Badge variant="neutral" className="text-xs bg-purple-100 text-purple-800">{record.actor}</Badge>}
+                        {record.modulo && <Badge variant="neutral" className="text-xs bg-purple-100 text-purple-800">{record.modulo}</Badge>}
                       </div>
                     </div>
                   </div>
@@ -869,23 +909,23 @@ export default function Dashboard() {
                     
                     <button 
                       onClick={(e) => { e.stopPropagation(); handleEdit(record); }} 
-                      className="p-1 md:p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-all flex-shrink-0"
+                      className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-all flex-shrink-0"
                       title="Editar"
                     >
-                      <PencilIcon className="w-4 h-4" />
+                      <PencilIcon className="w-5 h-5" />
                     </button>
                     <button 
                       onClick={(e) => { e.stopPropagation(); handleDelete(record.id); }} 
-                      className="p-1 md:p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-all flex-shrink-0"
+                      className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-all flex-shrink-0"
                       title="Eliminar"
                     >
-                      <TrashIcon className="w-4 h-4" />
+                      <TrashIcon className="w-5 h-5" />
                     </button>
                     <select 
                       value={record.estado || 'Pendiente'} 
                       onChange={(e) => { e.stopPropagation(); handleStatusChange(record.id, e.target.value as Estado); }} 
                       onClick={(e) => e.stopPropagation()} 
-                      className="text-xs border border-gray-300 rounded px-2 py-1 text-gray-900 font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 min-w-max flex-shrink-0"
+                      className="text-xs border border-gray-300 rounded px-2 py-2 text-gray-900 font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 min-w-max flex-shrink-0"
                       title="Cambiar estado"
                     >
                       {ESTADOS.map((e) => (<option key={e} value={e} className="text-gray-900">{e}</option>))}
@@ -919,6 +959,22 @@ export default function Dashboard() {
             </div>
           </div>
         )}
+
+        {/* Image Editor Modal */}
+        <Modal
+          isOpen={showImageEditor && editingImageIndex !== null && formData.evidencia[editingImageIndex] !== undefined}
+          onClose={handleCancelImageEdit}
+          title="Editar Imagen"
+          size="lg"
+        >
+          {editingImageIndex !== null && formData.evidencia[editingImageIndex] && (
+            <ImageEditor
+              initialImage={formData.evidencia[editingImageIndex]}
+              onSave={handleSaveEditedImage}
+              onCancel={handleCancelImageEdit}
+            />
+          )}
+        </Modal>
 
         {/* Record Details Modal */}
         <Modal

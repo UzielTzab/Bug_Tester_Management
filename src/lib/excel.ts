@@ -1,147 +1,94 @@
 import ExcelJS from 'exceljs';
 import { TestRecord } from '@/types';
 
-function isDataUrl(s?: string | null) {
-  return typeof s === 'string' && s.startsWith('data:');
-}
-
-function getImageInfoFromDataUrl(dataUrl: string) {
-  const match = dataUrl.match(/^data:(image\/(png|jpeg|jpg|gif));base64,(.*)$/);
-  if (!match) return null;
-  const mime = match[1];
-  const rawExt = match[2];
-  // normalize extension to exceljs accepted values: 'jpeg' | 'png' | 'gif'
-  let ext: 'jpeg' | 'png' | 'gif';
-  if (rawExt === 'jpg' || rawExt === 'jpeg') ext = 'jpeg';
-  else if (rawExt === 'png') ext = 'png';
-  else ext = 'gif';
-  const base64 = match[3];
-  return { mime, ext, base64 };
-}
-
-async function loadImageFromDataUrl(dataUrl: string): Promise<{ base64: string; ext: 'jpeg' | 'png' | 'gif'; width: number; height: number } | null> {
-  const info = getImageInfoFromDataUrl(dataUrl);
-  if (!info) return null;
-  return await new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      resolve({ base64: info.base64, ext: info.ext, width: img.naturalWidth, height: img.naturalHeight });
-    };
-    img.onerror = () => resolve(null);
-    img.src = dataUrl;
-  });
-}
-
-export async function exportToExcel(records: TestRecord[]): Promise<Blob> {
+export async function downloadExcel(records: TestRecord[]): Promise<void> {
   const workbook = new ExcelJS.Workbook();
   const ws = workbook.addWorksheet('Registro de Bugs');
 
   ws.columns = [
-    { header: 'ID', key: 'id', width: 12 },
-    { header: 'Actor', key: 'actor', width: 12 },
-    { header: 'Módulo / Página', key: 'modulo', width: 20 },
-    { header: 'Tipo de Error', key: 'tipoError', width: 16 },
-    { header: 'Título del Error', key: 'titulo', width: 30 },
-    { header: 'Pasos para Reproducir', key: 'pasos', width: 40 },
-    { header: 'Resultado Esperado', key: 'resEsperado', width: 30 },
-    { header: 'Resultado Actual', key: 'resActual', width: 30 },
-    { header: 'Evidencia (Link/Imagen)', key: 'evidencia', width: 50 },
-    { header: 'Estado', key: 'estado', width: 16 },
-    { header: 'Notas Dev', key: 'notas', width: 30 },
+    { header: 'ID', key: 'id', width: 14 },
+    { header: 'Actor', key: 'actor', width: 14 },
+    { header: 'Módulo / Página', key: 'modulo', width: 22 },
+    { header: 'Tipo de Error', key: 'tipoError', width: 18 },
+    { header: 'Dispositivo', key: 'device', width: 14 },
+    { header: 'Título del Error', key: 'titulo', width: 32 },
+    { header: 'Pasos para Reproducir', key: 'pasos', width: 42 },
+    { header: 'Resultado Esperado', key: 'resEsperado', width: 32 },
+    { header: 'Resultado Actual', key: 'resActual', width: 32 },
+    { header: 'Evidencias', key: 'evidencia', width: 14 },
+    { header: 'Estado', key: 'estado', width: 14 },
+    { header: 'Notas Dev', key: 'notas', width: 32 },
     { header: 'Fecha Creación', key: 'fecha', width: 18 },
   ];
 
-  // Add rows and keep track of rows that have images
+  // Estilo para header
+  const headerFont = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+  const headerFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+  const headerAlignment = { horizontal: 'center', vertical: 'center', wrapText: true };
+
+  ws.getRow(1).font = headerFont;
+  ws.getRow(1).fill = headerFill;
+  ws.getRow(1).alignment = headerAlignment;
+  ws.getRow(1).height = 24;
+
+  // Agregar datos sin imágenes
   for (const rec of records) {
-    ws.addRow({
+    const evidenciaCount = rec.evidencia && rec.evidencia.length > 0 ? rec.evidencia.length : 0;
+    const row = ws.addRow({
       id: rec.id,
       actor: rec.actor || '',
       modulo: rec.modulo || '',
       tipoError: rec.tipoError || '',
+      device: rec.device || '',
       titulo: rec.titulo || '',
       pasos: rec.pasosReproducir || '',
       resEsperado: rec.resultadoEsperado || '',
       resActual: rec.resultadoActual || '',
-      evidencia: rec.evidencia && rec.evidencia.length > 0 ? `${rec.evidencia.length} evidencia${rec.evidencia.length !== 1 ? 's' : ''}` : '',
+      evidencia: evidenciaCount > 0 ? `${evidenciaCount} archivo${evidenciaCount !== 1 ? 's' : ''}` : 'Sin evidencia',
       estado: rec.estado || '',
       notas: rec.notasDev || '',
       fecha: rec.fechaCreacion ? new Date(rec.fechaCreacion).toLocaleDateString('es-ES') : '',
     });
-  }
 
-  // After adding rows, embed images for data URLs while preserving aspect ratio and fitting into the evidencia column
-  for (let i = 0; i < records.length; i++) {
-    const rec = records[i];
-    const rowNumber = i + 2; // header is row 1
-    if (rec.evidencia && rec.evidencia.length > 0) {
-      // Process each evidence item
-      for (const evidence of rec.evidencia) {
-        if (isDataUrl(evidence)) {
-          try {
-            const loaded = await loadImageFromDataUrl(evidence);
-            if (!loaded) continue;
+    // Estilos para las filas de datos
+    row.font = { size: 10 };
+    row.alignment = { vertical: 'top', wrapText: true };
+    row.height = 30;
 
-            // Estimate column width in pixels. ExcelJS column.width is in 'characters' approx; use 7px per character as heuristic
-            const col = ws.columns[8];
-            const colCharWidth = (col && (col.width as number)) || 50;
-            const maxWidthPx = colCharWidth * 7;
-
-            // Calculate scaled dimensions to fit within column width while preserving aspect ratio
-            const scale = Math.min(1, maxWidthPx / loaded.width);
-            const displayWidth = Math.round(loaded.width * scale);
-            const displayHeight = Math.round(loaded.height * scale);
-
-            // Add image and set row height to accommodate it (convert px -> points by *0.75)
-            const imageId = workbook.addImage({ base64: loaded.base64, extension: loaded.ext });
-            ws.addImage(imageId, {
-              tl: { col: 8, row: rowNumber - 1 },
-              ext: { width: displayWidth, height: displayHeight },
-            });
-
-            // Set row height (points). 1px ~ 0.75pt
-            try {
-              const row = ws.getRow(rowNumber);
-              row.height = Math.max(row.height || 0, displayHeight * 0.75);
-            } catch (err) {
-              // ignore
-            }
-          } catch (err) {
-            // eslint-disable-next-line no-console
-            console.error('Failed to embed image for record', rec.id, err);
-          }
-        } else if (typeof evidence === 'string' && evidence.startsWith('http')) {
-          // For URL links, add hyperlink to the evidencia cell
-          const cell = ws.getCell(`I${rowNumber}`);
-          cell.value = { text: evidence, hyperlink: evidence } as any;
-        }
-      }
+    // Colorear celdas de estado
+    const estadoCell = row.getCell(11);
+    if (rec.estado === 'Corregido') {
+      estadoCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC6EFCE' } };
+      estadoCell.font = { bold: true, color: { argb: 'FF006100' } };
+    } else if (rec.estado === 'En Progreso') {
+      estadoCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFEB9C' } };
+      estadoCell.font = { bold: true, color: { argb: 'FF9C6500' } };
+    } else if (rec.estado === 'Pendiente') {
+      estadoCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC7CE' } };
+      estadoCell.font = { bold: true, color: { argb: 'FF9C0006' } };
     }
+    estadoCell.alignment = { horizontal: 'center', vertical: 'center' };
   }
 
-  // Optional: add data validation lists for some columns
-  const lastRow = records.length + 1;
-  if (lastRow > 1) {
-    // Actor (B)
-    ws.getColumn('actor').eachCell((cell, rowNumber) => {
-      if (rowNumber > 1) {
-        // no direct per-cell dataValidation in exceljs easily; skipping per-cell validation for brevity
-      }
+  // Aplicar bordes a todas las celdas
+  ws.eachRow((row) => {
+    row.eachCell((cell) => {
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FFD3D3D3' } },
+        left: { style: 'thin', color: { argb: 'FFD3D3D3' } },
+        bottom: { style: 'thin', color: { argb: 'FFD3D3D3' } },
+        right: { style: 'thin', color: { argb: 'FFD3D3D3' } },
+      };
     });
-  }
+  });
 
-  const buf = await workbook.xlsx.writeBuffer();
-  return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-}
-
-export async function downloadExcel(records: TestRecord[], filename = 'registro-bugs') {
-  const blob = await exportToExcel(records);
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${filename}-${new Date().toISOString().split('T')[0]}.xlsx`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  // Descargar el archivo
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `bugs-report-${new Date().toISOString().split('T')[0]}.xlsx`;
+  link.click();
+  URL.revokeObjectURL(link.href);
 }
 
