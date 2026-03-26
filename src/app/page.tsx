@@ -375,9 +375,9 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-white flex">
+    <div className="min-h-screen bg-white flex flex-col md:flex-row overflow-x-hidden">
       {/* Sidebar */}
-      <div className="w-64 bg-white border-r border-gray-200 shadow-lg p-6 fixed h-screen overflow-y-auto">
+      <div className="w-full md:w-64 bg-white border-b md:border-r border-gray-200 shadow-md md:shadow-lg p-4 md:p-6 md:fixed md:h-screen md:overflow-y-auto">
         <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
           <BugAntIcon className="w-5 h-5" />
           Proyectos
@@ -438,21 +438,21 @@ export default function Dashboard() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 ml-64 p-6">
-        <div className="max-w-7xl mx-auto">
+      <div className="w-full md:flex-1 md:ml-64 p-4 md:p-6 overflow-x-hidden">
+        <div className="w-full max-w-full overflow-x-hidden">
         {/* Header */}
-        <Card variant="elevated" className="mb-8 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <BugAntIcon className="w-8 h-8 text-red-600" />
-            <h1 className="text-3xl font-bold text-gray-900">Registro de Bugs - QA Dashboard</h1>
+        <Card variant="elevated" className="mb-6 md:mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex items-center gap-2 md:gap-3 min-w-0">
+            <BugAntIcon className="w-6 md:w-8 h-6 md:h-8 text-red-600 flex-shrink-0" />
+            <h1 className="text-xl md:text-3xl font-bold text-gray-900 truncate">Registro de Bugs - QA Dashboard</h1>
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-2 md:gap-3 w-full md:w-auto flex-wrap md:flex-nowrap">
             <Button
               variant="success"
               icon={<DocumentArrowDownIcon className="w-4 h-4" />}
               onClick={handleExport}
               disabled={records.length === 0 || isLoading}
-              className="text-sm"
+              className="text-xs md:text-sm flex-1 md:flex-none"
             >
               Exportar
             </Button>
@@ -461,34 +461,34 @@ export default function Dashboard() {
               icon={<TrashIcon className="w-4 h-4" />}
               onClick={() => setShowDeleteAllModal(true)}
               disabled={records.length === 0 || isLoading}
-              className="text-sm"
+              className="text-xs md:text-sm flex-1 md:flex-none"
             >
               Limpiar
             </Button>
             
-            {/* View Mode Toggle */}
-            <div className="flex border border-gray-300 rounded-lg overflow-hidden">
+            {/* View Mode Toggle - Escondido en móviles muy pequeños */}
+            <div className="hidden sm:flex border border-gray-300 rounded-lg overflow-hidden">
               <button
                 onClick={() => setViewMode('cards')}
-                className={`px-3 py-2 transition-all ${
+                className={`px-2 md:px-3 py-2 transition-all text-sm md:text-base ${
                   viewMode === 'cards'
                     ? 'bg-blue-600 text-white'
                     : 'bg-white text-gray-700 hover:bg-gray-50'
                 }`}
                 title="Vista de tarjetas"
               >
-                <Squares2X2Icon className="w-5 h-5" />
+                <Squares2X2Icon className="w-4 md:w-5 h-4 md:h-5" />
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`px-3 py-2 transition-all border-l border-gray-300 ${
+                className={`px-2 md:px-3 py-2 transition-all border-l border-gray-300 text-sm md:text-base ${
                   viewMode === 'list'
                     ? 'bg-blue-600 text-white'
                     : 'bg-white text-gray-700 hover:bg-gray-50'
                 }`}
                 title="Vista de lista"
               >
-                <ListBulletIcon className="w-5 h-5" />
+                <ListBulletIcon className="w-4 md:w-5 h-4 md:h-5" />
               </button>
             </div>
             
@@ -500,7 +500,7 @@ export default function Dashboard() {
                 setShowForm(!showForm);
               }}
               disabled={isLoading}
-              className="text-sm"
+              className="text-xs md:text-sm flex-1 md:flex-none"
             >
               {showForm ? 'Cerrar' : 'Nuevo Bug'}
             </Button>
@@ -508,20 +508,20 @@ export default function Dashboard() {
         </Card>
 
         {/* Filtros y Búsqueda */}
-        <Card variant="base" className="mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card variant="base" className="mb-6 overflow-x-hidden">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             <Input
               label="🔍 Buscar"
               placeholder="Buscar por título, módulo, tipo de error..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
-            <div>
+            <div className="min-w-0">
               <label className="block text-sm font-semibold text-gray-900 mb-2">🏷️ Filtrar por Estado</label>
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value as Estado | 'Todos')}
-                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-all duration-200"
+                className="w-full px-3 md:px-4 py-2 border-2 border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-all duration-200"
               >
                 <option value="Todos">Todos</option>
                 {ESTADOS.map((estado) => (
@@ -531,7 +531,7 @@ export default function Dashboard() {
             </div>
           </div>
           
-          <div className="mt-3 text-sm font-semibold text-gray-900">
+          <div className="mt-3 text-xs md:text-sm font-semibold text-gray-900">
             Mostrando {getFilteredRecords().length} de {records.length} registros
           </div>
         </Card>
@@ -708,34 +708,34 @@ export default function Dashboard() {
         </Modal>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <Card className="text-center">
-            <div className="text-3xl font-bold text-blue-600">{records.length}</div>
-            <div className="text-sm text-gray-600 font-semibold">Total Bugs</div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
+          <Card className="text-center p-4 md:p-6">
+            <div className="text-2xl md:text-3xl font-bold text-blue-600">{records.length}</div>
+            <div className="text-xs md:text-sm text-gray-600 font-semibold mt-2">Total Bugs</div>
           </Card>
-          <Card className="text-center">
-            <div className="text-3xl font-bold text-amber-600">
+          <Card className="text-center p-4 md:p-6">
+            <div className="text-2xl md:text-3xl font-bold text-amber-600">
               {records.filter((r) => r.estado === 'Pendiente').length}
             </div>
-            <div className="text-sm text-gray-600 font-semibold">Pendientes</div>
+            <div className="text-xs md:text-sm text-gray-600 font-semibold mt-2">Pendientes</div>
           </Card>
-          <Card className="text-center">
-            <div className="text-3xl font-bold text-cyan-600">
+          <Card className="text-center p-4 md:p-6">
+            <div className="text-2xl md:text-3xl font-bold text-cyan-600">
               {records.filter((r) => r.estado === 'En Progreso').length}
             </div>
-            <div className="text-sm text-gray-600 font-semibold">En Progreso</div>
+            <div className="text-xs md:text-sm text-gray-600 font-semibold mt-2">En Progreso</div>
           </Card>
-          <Card className="text-center">
-            <div className="text-3xl font-bold text-green-600">
+          <Card className="text-center p-4 md:p-6">
+            <div className="text-2xl md:text-3xl font-bold text-green-600">
               {records.filter((r) => r.estado === 'Corregido').length}
             </div>
-            <div className="text-sm text-gray-600 font-semibold">Corregidos</div>
+            <div className="text-xs md:text-sm text-gray-600 font-semibold mt-2">Corregidos</div>
           </Card>
         </div>
 
         {/* Cards Grid / List View */}
         {viewMode === 'cards' ? (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid gap-3 md:gap-4 lg:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-max">
             {isLoadingProject ? (
               <>
                 {[1, 2, 3, 4].map((idx) => (
@@ -743,12 +743,12 @@ export default function Dashboard() {
                 ))}
               </>
             ) : getFilteredRecords().length === 0 ? (
-              <div className="col-span-full text-center py-12 text-gray-900 font-semibold bg-gray-50 rounded-lg border-2 border-gray-200">
+              <div className="col-span-full text-center py-12 text-gray-900 font-semibold bg-gray-50 rounded-lg border-2 border-gray-200 text-sm md:text-base">
                 {records.length === 0 ? 'No hay registros. ¡Haz clic en "Nuevo Bug" para empezar!' : 'No se encontraron registros con los filtros aplicados.'}
               </div>
             ) : (
               getFilteredRecords().map((record) => (
-                <Card key={record.id} className="hover:shadow-lg hover:scale-105 cursor-pointer transition-all" onClick={() => setRecordModal(record)}>
+                <Card key={record.id} className="hover:shadow-lg hover:scale-105 cursor-pointer transition-all overflow-hidden flex flex-col" onClick={() => setRecordModal(record)}>
                   {/* Estado badge */}
                   <div className="flex justify-between items-start mb-3">
                     <div></div>
@@ -772,7 +772,7 @@ export default function Dashboard() {
                   </div>
 
                   {/* Título */}
-                  <h3 className="font-bold text-sm mb-2 truncate text-gray-900">{record.titulo || '-'}</h3>
+                  <h3 className="font-bold text-xs md:text-sm mb-2 truncate text-gray-900">{record.titulo || '-'}</h3>
 
                   {/* Info principal */}
                   <div className="flex flex-wrap gap-1 mb-2">
@@ -781,23 +781,23 @@ export default function Dashboard() {
                   </div>
 
                   {/* Módulo */}
-                  {record.modulo && <div className="text-xs text-gray-600 mb-3">{record.modulo}</div>}
+                  {record.modulo && <div className="text-xs text-gray-600 mb-3 truncate">{record.modulo}</div>}
 
                   {/* Acciones */}
-                  <div className="flex gap-2 pt-2 border-t border-gray-200">
+                  <div className="flex gap-2 pt-2 border-t border-gray-200 mt-auto">
                     <button 
                       onClick={(e) => { e.stopPropagation(); handleEdit(record); }} 
                       className="flex-1 p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-all" 
                       title="Editar"
                     >
-                      <PencilIcon className="w-5 h-5 mx-auto" />
+                      <PencilIcon className="w-4 md:w-5 h-4 md:h-5 mx-auto" />
                     </button>
                     <button 
                       onClick={(e) => { e.stopPropagation(); handleDelete(record.id); }} 
                       className="flex-1 p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-all" 
                       title="Eliminar"
                     >
-                      <TrashIcon className="w-5 h-5 mx-auto" />
+                      <TrashIcon className="w-4 md:w-5 h-4 md:h-5 mx-auto" />
                     </button>
                     <select 
                       value={record.estado || 'Pendiente'} 
@@ -815,7 +815,7 @@ export default function Dashboard() {
           </div>
         ) : (
           /* List View */
-          <div className="space-y-3">
+          <div className="space-y-2 md:space-y-3">
             {isLoadingProject ? (
               <>
                 {[1, 2, 3, 4].map((idx) => (
@@ -823,43 +823,43 @@ export default function Dashboard() {
                 ))}
               </>
             ) : getFilteredRecords().length === 0 ? (
-              <div className="text-center py-12 text-gray-900 font-semibold bg-gray-50 rounded-lg border-2 border-gray-200">
+              <div className="text-center py-12 text-gray-900 font-semibold bg-gray-50 rounded-lg border-2 border-gray-200 text-sm md:text-base">
                 {records.length === 0 ? 'No hay registros. ¡Haz clic en "Nuevo Bug" para empezar!' : 'No se encontraron registros con los filtros aplicados.'}
               </div>
             ) : (
               getFilteredRecords().map((record) => (
                 <Card 
                   key={record.id} 
-                  className="hover:shadow-md hover:bg-gray-50 cursor-pointer transition-all p-4 flex items-center justify-between"
+                  className="hover:shadow-md hover:bg-gray-50 cursor-pointer transition-all p-3 md:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 overflow-hidden"
                   onClick={() => setRecordModal(record)}
                 >
                   {/* Imagen pequeña y título */}
-                  <div className="flex items-center gap-4 flex-1">
+                  <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0 w-full sm:w-auto">
                     {record.evidencia && record.evidencia.length > 0 && isImageData(record.evidencia[0]) ? (
                       <img 
                         src={record.evidencia[0]} 
                         alt="Evidencia" 
-                        className="h-12 w-12 object-cover rounded-lg border border-gray-300 flex-shrink-0"
+                        className="h-10 md:h-12 w-10 md:w-12 object-cover rounded-lg border border-gray-300 flex-shrink-0"
                         onClick={(e) => { e.stopPropagation(); setImageModal(record.evidencia[0]); }}
                       />
                     ) : (
-                      <div className="h-12 w-12 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <div className="h-10 md:h-12 w-10 md:w-12 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
                         <span className="text-xs text-gray-600">–</span>
                       </div>
                     )}
                     
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-sm text-gray-900 truncate">{record.titulo || '-'}</h3>
-                      <div className="flex gap-2 mt-1 flex-wrap">
+                      <h3 className="font-bold text-xs md:text-sm text-gray-900 truncate">{record.titulo || '-'}</h3>
+                      <div className="flex gap-1 mt-1 flex-wrap">
                         {record.tipoError && <Badge variant="neutral" className="text-xs">{record.tipoError}</Badge>}
                         {record.device && <Badge variant="neutral" className="text-xs">{record.device}</Badge>}
-                        {record.modulo && <Badge variant="neutral" className="text-xs">{record.modulo}</Badge>}
+                        {record.modulo && <Badge variant="neutral" className="text-xs hidden sm:inline-block">{record.modulo}</Badge>}
                       </div>
                     </div>
                   </div>
 
                   {/* Estado y acciones */}
-                  <div className="flex items-center gap-3 ml-4">
+                  <div className="flex items-center gap-2 md:gap-3 ml-0 sm:ml-4 flex-wrap sm:flex-nowrap w-full sm:w-auto">
                     <Badge 
                       variant={record.estado === 'Corregido' ? 'success' : record.estado === 'En Progreso' ? 'info' : record.estado === 'Pendiente' ? 'warning' : 'neutral'} 
                       className="text-xs whitespace-nowrap"
@@ -869,14 +869,14 @@ export default function Dashboard() {
                     
                     <button 
                       onClick={(e) => { e.stopPropagation(); handleEdit(record); }} 
-                      className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-all"
+                      className="p-1 md:p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-all flex-shrink-0"
                       title="Editar"
                     >
                       <PencilIcon className="w-4 h-4" />
                     </button>
                     <button 
                       onClick={(e) => { e.stopPropagation(); handleDelete(record.id); }} 
-                      className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-all"
+                      className="p-1 md:p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-all flex-shrink-0"
                       title="Eliminar"
                     >
                       <TrashIcon className="w-4 h-4" />
@@ -885,7 +885,7 @@ export default function Dashboard() {
                       value={record.estado || 'Pendiente'} 
                       onChange={(e) => { e.stopPropagation(); handleStatusChange(record.id, e.target.value as Estado); }} 
                       onClick={(e) => e.stopPropagation()} 
-                      className="text-xs border border-gray-300 rounded px-2 py-1 text-gray-900 font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 min-w-max"
+                      className="text-xs border border-gray-300 rounded px-2 py-1 text-gray-900 font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 min-w-max flex-shrink-0"
                       title="Cambiar estado"
                     >
                       {ESTADOS.map((e) => (<option key={e} value={e} className="text-gray-900">{e}</option>))}
@@ -1102,7 +1102,7 @@ export default function Dashboard() {
         </Modal>
 
         {/* Footer */}
-        <div className="mt-8 text-center text-gray-700 text-sm font-semibold">
+        <div className="mt-6 md:mt-8 text-center text-gray-700 text-xs md:text-sm font-semibold">
           QA Bug Tracker Dashboard • {new Date().getFullYear()}
         </div>
         </div>
