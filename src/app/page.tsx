@@ -18,6 +18,7 @@ import {
   PhotoIcon,
   ListBulletIcon,
   Squares2X2Icon,
+  CheckCircleIcon,
 } from '@heroicons/react/24/outline';
 
 
@@ -391,7 +392,7 @@ export default function Dashboard() {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <Spinner size="lg" color="blue" />
+          <Spinner size="lg" color="purple" variant="modern" />
           <p className="mt-4 text-xl font-semibold text-gray-900">Cargando...</p>
         </div>
       </div>
@@ -791,9 +792,14 @@ export default function Dashboard() {
                   {/* Estado badge */}
                   <div className="flex justify-between items-start mb-3">
                     <div></div>
-                    <Badge variant={record.estado === 'Corregido' ? 'success' : record.estado === 'En Progreso' ? 'info' : record.estado === 'Pendiente' ? 'warning' : 'neutral'} className="text-xs">
-                      {record.estado}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      {record.estado === 'Corregido' && (
+                        <CheckCircleIcon className="w-6 h-6 text-green-600 flex-shrink-0" />
+                      )}
+                      <Badge variant={record.estado === 'Corregido' ? 'success' : record.estado === 'En Progreso' ? 'info' : record.estado === 'Pendiente' ? 'warning' : 'neutral'} className="text-xs">
+                        {record.estado}
+                      </Badge>
+                    </div>
                   </div>
 
                   {/* Imagen evidencia */}
@@ -811,7 +817,7 @@ export default function Dashboard() {
                   </div>
 
                   {/* Título */}
-                  <h3 className="font-bold text-xs md:text-sm mb-2 truncate text-gray-900">{record.titulo || '-'}</h3>
+                  <h3 className={`font-bold text-xs md:text-sm mb-2 truncate text-gray-900 ${record.estado === 'Corregido' ? 'line-through text-gray-600' : ''}`}>{record.titulo || '-'}</h3>
 
                   {/* Info principal */}
                   <div className="flex flex-wrap gap-1 mb-2">
@@ -888,7 +894,7 @@ export default function Dashboard() {
                     )}
                     
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-base md:text-lg text-gray-900 mb-2">{record.titulo || '-'}</h3>
+                      <h3 className={`font-bold text-base md:text-lg text-gray-900 mb-2 ${record.estado === 'Corregido' ? 'line-through text-gray-600' : ''}`}>{record.titulo || '-'}</h3>
                       <div className="flex gap-2 mt-2 flex-wrap">
                         {record.tipoError && <Badge variant="neutral" className="text-xs bg-purple-100 text-purple-800">{record.tipoError}</Badge>}
                         {record.device && <Badge variant="neutral" className="text-xs bg-purple-200 text-purple-900">{record.device}</Badge>}
@@ -900,12 +906,17 @@ export default function Dashboard() {
 
                   {/* Estado y acciones */}
                   <div className="flex items-center gap-2 md:gap-3 ml-0 sm:ml-4 flex-wrap sm:flex-nowrap w-full sm:w-auto">
-                    <Badge 
-                      variant={record.estado === 'Corregido' ? 'success' : record.estado === 'En Progreso' ? 'info' : record.estado === 'Pendiente' ? 'warning' : 'neutral'} 
-                      className="text-xs whitespace-nowrap"
-                    >
-                      {record.estado}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      {record.estado === 'Corregido' && (
+                        <CheckCircleIcon className="w-6 h-6 text-green-600 flex-shrink-0" />
+                      )}
+                      <Badge 
+                        variant={record.estado === 'Corregido' ? 'success' : record.estado === 'En Progreso' ? 'info' : record.estado === 'Pendiente' ? 'warning' : 'neutral'} 
+                        className="text-xs whitespace-nowrap"
+                      >
+                        {record.estado}
+                      </Badge>
+                    </div>
                     
                     <button 
                       onClick={(e) => { e.stopPropagation(); handleEdit(record); }} 

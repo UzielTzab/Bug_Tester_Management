@@ -1,4 +1,5 @@
 import React from 'react';
+import { Spinner } from './Spinner';
 
 type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'success' | 'warning' | 'small';
 type ButtonSize = 'sm' | 'md' | 'lg';
@@ -41,6 +42,9 @@ export function Button({
   
   const sizeClass = variant === 'small' ? variantClasses[variant] : `${sizeClasses[size]} ${variantClasses[variant]}`;
   const widthClass = fullWidth ? 'w-full' : '';
+
+  const spinnerSize = size === 'sm' ? 'sm' : size === 'lg' ? 'md' : 'sm';
+  const spinnerColor = variant === 'danger' ? 'red' : variant === 'success' ? 'green' : variant === 'warning' ? 'red' : 'blue';
   
   return (
     <button
@@ -49,7 +53,7 @@ export function Button({
       {...props}
     >
       {loading ? (
-        <span className="animate-spin">⏳</span>
+        <Spinner size={spinnerSize} color={spinnerColor} variant="default" />
       ) : (
         icon && <span className="flex-shrink-0">{icon}</span>
       )}
