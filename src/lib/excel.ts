@@ -23,12 +23,12 @@ export async function downloadExcel(records: TestRecord[]): Promise<void> {
 
   // Estilo para header
   const headerFont = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
-  const headerFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
-  const headerAlignment = { horizontal: 'center', vertical: 'center', wrapText: true };
+  const headerFill = { type: 'pattern' as const, pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+  const headerAlignment = { horizontal: 'center' as const, vertical: 'middle' as const, wrapText: true };
 
   ws.getRow(1).font = headerFont;
-  ws.getRow(1).fill = headerFill;
-  ws.getRow(1).alignment = headerAlignment;
+  ws.getRow(1).fill = headerFill as any;
+  ws.getRow(1).alignment = headerAlignment as any;
   ws.getRow(1).height = 24;
 
   // Agregar datos sin imágenes
@@ -52,22 +52,22 @@ export async function downloadExcel(records: TestRecord[]): Promise<void> {
 
     // Estilos para las filas de datos
     row.font = { size: 10 };
-    row.alignment = { vertical: 'top', wrapText: true };
+    row.alignment = { vertical: 'top' as const, wrapText: true } as any;
     row.height = 30;
 
     // Colorear celdas de estado
     const estadoCell = row.getCell(11);
     if (rec.estado === 'Corregido') {
-      estadoCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC6EFCE' } };
+      estadoCell.fill = { type: 'pattern' as const, pattern: 'solid', fgColor: { argb: 'FFC6EFCE' } } as any;
       estadoCell.font = { bold: true, color: { argb: 'FF006100' } };
     } else if (rec.estado === 'En Progreso') {
-      estadoCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFEB9C' } };
+      estadoCell.fill = { type: 'pattern' as const, pattern: 'solid', fgColor: { argb: 'FFFFEB9C' } } as any;
       estadoCell.font = { bold: true, color: { argb: 'FF9C6500' } };
     } else if (rec.estado === 'Pendiente') {
-      estadoCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC7CE' } };
+      estadoCell.fill = { type: 'pattern' as const, pattern: 'solid', fgColor: { argb: 'FFFFC7CE' } } as any;
       estadoCell.font = { bold: true, color: { argb: 'FF9C0006' } };
     }
-    estadoCell.alignment = { horizontal: 'center', vertical: 'center' };
+    estadoCell.alignment = { horizontal: 'center' as const, vertical: 'middle' as const } as any;
   }
 
   // Aplicar bordes a todas las celdas
