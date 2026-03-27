@@ -402,7 +402,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen flex flex-col md:flex-row overflow-x-hidden" style={{ backgroundColor: 'var(--bg-light-gray)' }}>
       {/* Sidebar */}
-      <div className="w-full md:w-64 bg-white border-b md:border-r border-gray-200 shadow-md md:shadow-lg p-4 md:p-6 md:fixed md:h-screen md:overflow-y-auto">
+      <div className="w-full md:w-64 bg-white border-b md:border-r border-gray-200 p-4 md:p-6 md:fixed md:h-screen md:overflow-y-auto">
         <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
           <BugAntIcon className="w-5 h-5" />
           Proyectos
@@ -423,7 +423,7 @@ export default function Dashboard() {
                   onClick={() => setCurrentProjectId(project.id)}
                   className={`w-full text-left p-3 rounded-lg border-2 transition-all group ${ 
                     isActive
-                      ? `bg-gradient-to-r ${project.color} text-white border-blue-700 shadow-md scale-105`
+                      ? `bg-gradient-to-r ${project.color} text-white border-blue-700 scale-105`
                       : 'bg-white text-gray-900 border-gray-300 hover:bg-gray-50'
                   }`}
                 >
@@ -788,7 +788,7 @@ export default function Dashboard() {
               </div>
             ) : (
               getFilteredRecords().map((record) => (
-                <Card key={record.id} className="hover:shadow-lg hover:scale-105 cursor-pointer transition-all overflow-hidden flex flex-col" onClick={() => setRecordModal(record)}>
+                <Card key={record.id} className="cursor-pointer transition-all overflow-hidden flex flex-col" onClick={() => setRecordModal(record)}>
                   {/* Estado badge */}
                   <div className="flex justify-between items-start mb-3">
                     <div></div>

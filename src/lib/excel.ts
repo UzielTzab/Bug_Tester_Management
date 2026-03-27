@@ -12,13 +12,9 @@ export async function downloadExcel(records: TestRecord[]): Promise<void> {
     { header: 'Tipo de Error', key: 'tipoError', width: 18 },
     { header: 'Dispositivo', key: 'device', width: 14 },
     { header: 'Título del Error', key: 'titulo', width: 32 },
-    { header: 'Pasos para Reproducir', key: 'pasos', width: 42 },
-    { header: 'Resultado Esperado', key: 'resEsperado', width: 32 },
-    { header: 'Resultado Actual', key: 'resActual', width: 32 },
-    { header: 'Evidencias', key: 'evidencia', width: 14 },
     { header: 'Estado', key: 'estado', width: 14 },
-    { header: 'Notas Dev', key: 'notas', width: 32 },
     { header: 'Fecha Creación', key: 'fecha', width: 18 },
+    { header: 'Responsable', key: 'responsable', width: 18 },
   ];
 
   // Estilo para header
@@ -33,7 +29,6 @@ export async function downloadExcel(records: TestRecord[]): Promise<void> {
 
   // Agregar datos sin imágenes
   for (const rec of records) {
-    const evidenciaCount = rec.evidencia && rec.evidencia.length > 0 ? rec.evidencia.length : 0;
     const row = ws.addRow({
       id: rec.id,
       actor: rec.actor || '',
@@ -41,13 +36,9 @@ export async function downloadExcel(records: TestRecord[]): Promise<void> {
       tipoError: rec.tipoError || '',
       device: rec.device || '',
       titulo: rec.titulo || '',
-      pasos: rec.pasosReproducir || '',
-      resEsperado: rec.resultadoEsperado || '',
-      resActual: rec.resultadoActual || '',
-      evidencia: evidenciaCount > 0 ? `${evidenciaCount} archivo${evidenciaCount !== 1 ? 's' : ''}` : 'Sin evidencia',
       estado: rec.estado || '',
-      notas: rec.notasDev || '',
       fecha: rec.fechaCreacion ? new Date(rec.fechaCreacion).toLocaleDateString('es-ES') : '',
+      responsable: '',
     });
 
     // Estilos para las filas de datos
@@ -55,8 +46,8 @@ export async function downloadExcel(records: TestRecord[]): Promise<void> {
     row.alignment = { vertical: 'top' as const, wrapText: true } as any;
     row.height = 30;
 
-    // Colorear celdas de estado
-    const estadoCell = row.getCell(11);
+    // Colorear celdas de estado (columna 7)
+    const estadoCell = row.getCell(7);
     if (rec.estado === 'Corregido') {
       estadoCell.fill = { type: 'pattern' as const, pattern: 'solid', fgColor: { argb: 'FFC6EFCE' } } as any;
       estadoCell.font = { bold: true, color: { argb: 'FF006100' } };

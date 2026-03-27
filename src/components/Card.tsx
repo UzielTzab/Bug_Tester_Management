@@ -6,8 +6,8 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 const variantClasses = {
-  base: 'bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md p-4',
-  elevated: 'bg-white rounded-lg border border-gray-300 shadow-md hover:shadow-lg p-6',
+  base: 'bg-white rounded-lg border border-gray-200 p-4',
+  elevated: 'bg-white rounded-lg border border-gray-300 p-6',
   compact: 'bg-white rounded-lg border border-gray-200 p-3',
 };
 
