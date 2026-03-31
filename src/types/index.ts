@@ -27,6 +27,7 @@ export interface Project {
   description?: string;
   color: string; // Color de identidad
   icon: string; // Emoji o icono
+  actors?: string[]; // Actores personalizados por proyecto
   createdAt: string;
 }
 
