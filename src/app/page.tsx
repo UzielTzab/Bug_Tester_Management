@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, type ChangeEvent, type ClipboardEvent, type FormEvent } from 'react';
 import { TestRecord, TipoError, Estado, Actor, DeviceType, Project } from '@/types';
-import { downloadExcel } from '@/lib/excel';
+import { downloadPDF } from '@/lib/pdf';
 import { TIPOS_ERROR, ESTADOS, ACTORES, DISPOSITIVOS, tipoColors, estadoColors, actorColors } from '@/lib/config';
 import { PROJECTS, DEFAULT_PROJECT_ID, getProject } from '@/lib/projects';
 import { migrateRecordsToProject, getRecordsByProject, getProjects, addProject, createProjectWithId, updateProject } from '@/lib/db';
@@ -18,6 +18,7 @@ import {
   PhotoIcon,
   ListBulletIcon,
   Squares2X2Icon,
+  ViewColumnsIcon,
   CheckCircleIcon,
   UserIcon,
   MapPinIcon,
@@ -58,7 +59,8 @@ export default function Dashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentProjectId, setCurrentProjectId] = useState<string>(DEFAULT_PROJECT_ID);
   const [migrationDone, setMigrationDone] = useState(false);
-  const [viewMode, setViewMode] = useState<'cards' | 'list'>('list');
+  const [viewMode, setViewMode] = useState<'cards' | 'list' | 'kanban'>('list');
+  const [draggingRecordId, setDraggingRecordId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [newProjectData, setNewProjectData] = useState({
     name: '',
@@ -446,8 +448,31 @@ export default function Dashboard() {
     }
   };
 
-  const handleExport = () => {
-    downloadExcel(records);
+  const handleExport = async () => {
+    setIsLoading(true);
+    try {
+      const projectName = currentProject?.name || 'Proyecto';
+      await downloadPDF(records, projectName);
+    } catch (error) {
+      console.error('Error exportando PDF:', error);
+      alert('Error al exportar PDF');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDragStart = (recordId: string) => {
+    setDraggingRecordId(recordId);
+  };
+
+  const handleDragEnd = () => {
+    setDraggingRecordId(null);
+  };
+
+  const handleDropStatus = async (targetStatus: Estado) => {
+    if (!draggingRecordId) return;
+    await handleStatusChange(draggingRecordId, targetStatus);
+    setDraggingRecordId(null);
   };
 
   const handleCopyToClipboard = (text: string) => {
@@ -579,13 +604,14 @@ export default function Dashboard() {
           </div>
           <div className="flex gap-2 md:gap-3 w-full md:w-auto flex-wrap md:flex-nowrap">
             <Button
-              variant="success"
+              variant="secondary"
               icon={<DocumentArrowDownIcon className="w-4 h-4" />}
               onClick={handleExport}
               disabled={records.length === 0 || isLoading}
+              loading={isLoading}
               className="text-xs md:text-sm flex-1 md:flex-none"
             >
-              Exportar
+              Exportar PDF
             </Button>
             <Button
               variant="danger"
@@ -620,6 +646,17 @@ export default function Dashboard() {
                 title="Vista de lista"
               >
                 <ListBulletIcon className="w-4 md:w-5 h-4 md:h-5" />
+              </button>
+              <button
+                onClick={() => setViewMode('kanban')}
+                className={`px-2 md:px-3 py-2 transition-all border-l border-gray-300 text-sm md:text-base ${
+                  viewMode === 'kanban'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+                title="Vista de tablero"
+              >
+                <ViewColumnsIcon className="w-4 md:w-5 h-4 md:h-5" />
               </button>
             </div>
             
@@ -899,32 +936,6 @@ export default function Dashboard() {
           </div>
         </Modal>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
-          <Card className="text-center p-4 md:p-6">
-            <div className="text-2xl md:text-3xl font-bold text-blue-600">{records.length}</div>
-            <div className="text-xs md:text-sm text-gray-600 font-semibold mt-2">Total Bugs</div>
-          </Card>
-          <Card className="text-center p-4 md:p-6">
-            <div className="text-2xl md:text-3xl font-bold text-amber-600">
-              {records.filter((r) => r.estado === 'Pendiente').length}
-            </div>
-            <div className="text-xs md:text-sm text-gray-600 font-semibold mt-2">Pendientes</div>
-          </Card>
-          <Card className="text-center p-4 md:p-6">
-            <div className="text-2xl md:text-3xl font-bold text-cyan-600">
-              {records.filter((r) => r.estado === 'En Progreso').length}
-            </div>
-            <div className="text-xs md:text-sm text-gray-600 font-semibold mt-2">En Progreso</div>
-          </Card>
-          <Card className="text-center p-4 md:p-6">
-            <div className="text-2xl md:text-3xl font-bold text-green-600">
-              {records.filter((r) => r.estado === 'Corregido').length}
-            </div>
-            <div className="text-xs md:text-sm text-gray-600 font-semibold mt-2">Corregidos</div>
-          </Card>
-        </div>
-
         {/* Cards Grid / List View */}
         {viewMode === 'cards' ? (
           <div className="grid gap-3 md:gap-4 lg:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-max">
@@ -1010,7 +1021,7 @@ export default function Dashboard() {
               ))
             )}
           </div>
-        ) : (
+        ) : viewMode === 'list' ? (
           /* List View */
           <div className="space-y-2 md:space-y-3">
             {isLoadingProject ? (
@@ -1097,6 +1108,97 @@ export default function Dashboard() {
                 </Card>
               ))
             )}
+          </div>
+        ) : (
+          /* Kanban View */
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            {ESTADOS.map((estado) => {
+              const columnRecords = getFilteredRecords().filter((r) => r.estado === estado);
+              return (
+                <div
+                  key={estado}
+                  className="rounded-lg border border-gray-200 bg-white p-3 min-h-[320px]"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => handleDropStatus(estado)}
+                >
+                  <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200">
+                    <Badge
+                      variant={
+                        estado === 'Corregido'
+                          ? 'success'
+                          : estado === 'En Progreso'
+                          ? 'info'
+                          : estado === 'Pendiente'
+                          ? 'warning'
+                          : 'neutral'
+                      }
+                      className="text-xs"
+                    >
+                      {estado}
+                    </Badge>
+                    <span className="text-xs font-semibold text-gray-600">{columnRecords.length}</span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {isLoadingProject ? (
+                      <SkeletonLoader count={2} height="h-24" className="rounded-lg" />
+                    ) : columnRecords.length === 0 ? (
+                      <div className="text-xs text-gray-500 text-center py-6 border border-dashed border-gray-200 rounded-lg">
+                        Arrastra bugs aqui
+                      </div>
+                    ) : (
+                      columnRecords.map((record) => (
+                        <div
+                          key={record.id}
+                          draggable
+                          onDragStart={() => handleDragStart(record.id)}
+                          onDragEnd={handleDragEnd}
+                          onClick={() => setRecordModal(record)}
+                          className={`cursor-pointer rounded-lg border border-gray-200 bg-white p-3 transition-all ${
+                            draggingRecordId === record.id ? 'opacity-50' : 'opacity-100'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <h3 className={`font-bold text-sm text-gray-900 line-clamp-2 ${record.estado === 'Corregido' ? 'line-through text-gray-600' : ''}`}>
+                              {record.titulo || '-'}
+                            </h3>
+                            {record.estado === 'Corregido' && <CheckCircleIcon className="w-5 h-5 text-green-600 flex-shrink-0" />}
+                          </div>
+
+                          <div className="flex flex-wrap gap-1 mb-2">
+                            {record.tipoError && <Badge variant="neutral" className="text-[10px] bg-purple-100 text-purple-800">{record.tipoError}</Badge>}
+                            {record.device && <Badge variant="neutral" className="text-[10px] bg-purple-200 text-purple-900">{record.device}</Badge>}
+                          </div>
+
+                          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEdit(record);
+                              }}
+                              className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-all"
+                              title="Editar"
+                            >
+                              <PencilIcon className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDelete(record.id);
+                              }}
+                              className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-all"
+                              title="Eliminar"
+                            >
+                              <TrashIcon className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
