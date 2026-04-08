@@ -1,0 +1,8 @@
+// UI Components - Componentes reutilizables base para construir interfaces
+export { Button } from './Button';
+export { Card } from './Card';
+export { Badge } from './Badge';
+export { Input } from './Input';
+export { Spinner } from './Spinner';
+export { SkeletonLoader } from './SkeletonLoader';
+export { ImageEditor } from './ImageEditor';

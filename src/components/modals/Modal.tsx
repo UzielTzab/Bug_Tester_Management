@@ -7,19 +7,21 @@ interface ModalProps {
   title?: string;
   children: React.ReactNode;
   size?: 'sm' | 'md' | 'lg';
+  zIndex?: number;
 }
 
 const sizeClasses = {
-  sm: 'max-w-sm',
-  md: 'max-w-md',
-  lg: 'max-w-2xl',
+  sm: 'max-w-2xl',
+  md: 'max-w-3xl',
+  lg: 'max-w-4xl',
 };
 
-export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalProps) {
+export function Modal({ isOpen, onClose, title, children, size = 'md', zIndex = 50 }: ModalProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/10 backdrop-blur-md flex items-center justify-center z-50 p-4">
+    <div className={`fixed inset-0 bg-black/10 backdrop-blur-md flex items-center justify-center p-4`} style={{ zIndex }}>
+
       <div className={`w-full ${sizeClasses[size]} bg-white rounded-2xl shadow-2xl border border-gray-200 p-6 sm:p-8 relative`}>
         {title && (
           <h2 className="text-2xl font-bold text-gray-900 mb-6">

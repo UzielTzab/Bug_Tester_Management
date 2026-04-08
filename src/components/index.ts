@@ -1,9 +1,6 @@
-// UI Components - Exportar todos los componentes base reutilizables
-export { Button } from './Button';
-export { Card } from './Card';
-export { Badge } from './Badge';
-export { Input } from './Input';
-export { Spinner } from './Spinner';
-export { SkeletonLoader } from './SkeletonLoader';
-export { Modal } from './Modal';
-export { ImageEditor } from './ImageEditor';
+// Re-exportar todos los componentes desde sus carpetas correspondientes
+// UI Components - Componentes reutilizables base
+export { Button, Card, Badge, Input, Spinner, SkeletonLoader, ImageEditor } from './ui';
+
+// Modal Components - Diálogos y modales
+export { Modal } from './modals';

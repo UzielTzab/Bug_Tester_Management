@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAllRecords, addRecord, deleteAllRecords } from '@/lib/db';
+import { getAllRecords, addRecord, deleteAllRecords, getRecordsByProject } from '@/lib/db';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const records = await getAllRecords();
+    const projectId = request.nextUrl.searchParams.get('projectId');
+    const records = projectId ? await getRecordsByProject(projectId) : await getAllRecords();
     return NextResponse.json(records);
   } catch (error) {
     return NextResponse.json({ error: 'Error al obtener registros' }, { status: 500 });
