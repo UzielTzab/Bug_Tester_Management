@@ -67,6 +67,7 @@ export default function ProjectDashboard() {
   const [migrationDone, setMigrationDone] = useState(false);
   const [viewMode, setViewMode] = useState<'cards' | 'list' | 'kanban'>('list');
   const [draggingRecordId, setDraggingRecordId] = useState<string | null>(null);
+  const [dragOverStatus, setDragOverStatus] = useState<Estado | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [newProjectData, setNewProjectData] = useState({
     name: '',
@@ -569,12 +570,26 @@ export default function ProjectDashboard() {
 
   const handleDragEnd = () => {
     setDraggingRecordId(null);
+    setDragOverStatus(null);
+  };
+
+  const handleDragOverColumn = (e: React.DragEvent, status: Estado) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (draggingRecordId) {
+      setDragOverStatus(status);
+    }
+  };
+
+  const handleDragLeaveColumn = () => {
+    setDragOverStatus(null);
   };
 
   const handleDropStatus = async (targetStatus: Estado) => {
     if (!draggingRecordId) return;
     await handleStatusChange(draggingRecordId, targetStatus);
     setDraggingRecordId(null);
+    setDragOverStatus(null);
   };
 
   const handleCopyToClipboard = (text: string) => {
@@ -623,7 +638,7 @@ export default function ProjectDashboard() {
   return (
     <div className="min-h-screen flex flex-col md:flex-row overflow-x-hidden" style={{ backgroundColor: 'var(--bg-light-gray)' }}>
       {/* Sidebar */}
-      <div className="w-full md:w-64 bg-gradient-to-b from-blue-600 to-blue-700 border-b md:border-r border-blue-800 p-4 md:p-6 md:fixed md:h-screen md:overflow-y-auto shadow-lg">
+      <div className="w-full md:w-64 bg-gradient-to-b from-green-600 to-blue-700 border-b md:border-r border-blue-800 p-4 md:p-6 md:fixed md:h-screen md:overflow-y-auto shadow-lg">
         <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
           <BugAntIcon className="w-5 h-5" />
           Proyecto Actual
@@ -633,9 +648,14 @@ export default function ProjectDashboard() {
           {currentProject ? (
             <div className="bg-white text-gray-900 border-2 border-white shadow-md rounded-lg p-3">
               <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2 flex-1">
+                <div 
+                  onClick={() => router.push('/')}
+                  className="flex items-center gap-2 flex-1 cursor-pointer hover:opacity-80 transition-opacity group"
+                  title="Volver a Proyectos"
+                >
+                  <ArrowLeftIcon className="w-4 h-4 text-gray-600 group-hover:text-gray-900 transition-colors flex-shrink-0" />
                   <span className="text-lg">{currentProject.icon}</span>
-                  <div>
+                  <div className="min-w-0">
                     <div className="font-bold text-sm">{currentProject.name}</div>
                     {currentProject.description && (
                       <div className="text-xs text-gray-600">
@@ -661,17 +681,6 @@ export default function ProjectDashboard() {
             </p>
           )}
         </div>
-
-        {/* Botón para volver a proyectos */}
-        <Button
-          variant="secondary"
-          fullWidth
-          icon={<ArrowLeftIcon className="w-4 h-4" />}
-          onClick={() => router.push('/')}
-          className="mb-4"
-        >
-          Volver a Proyectos
-        </Button>
       </div>
 
       {/* Main Content */}
@@ -1225,28 +1234,44 @@ export default function ProjectDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             {ESTADOS.map((estado) => {
               const columnRecords = getFilteredRecords().filter((r) => r.estado === estado);
+              const isBeingDraggedOver = dragOverStatus === estado;
+              
               return (
                 <div
                   key={estado}
-                  className="rounded-lg border border-gray-200 bg-white p-3 min-h-[320px]"
-                  onDragOver={(e) => e.preventDefault()}
+                  className={`rounded-lg transition-all duration-200 p-3 min-h-[320px] ${
+                    isBeingDraggedOver
+                      ? 'border-2 border-blue-500 bg-blue-50 shadow-lg scale-102'
+                      : 'border border-gray-200 bg-white'
+                  }`}
+                  onDragOver={(e) => handleDragOverColumn(e, estado)}
+                  onDragLeave={handleDragLeaveColumn}
                   onDrop={() => handleDropStatus(estado)}
                 >
-                  <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200">
-                    <Badge
-                      variant={
-                        estado === 'Corregido'
-                          ? 'success'
-                          : estado === 'En Progreso'
-                          ? 'info'
-                          : estado === 'Pendiente'
-                          ? 'warning'
-                          : 'neutral'
-                      }
-                      className="text-xs"
-                    >
-                      {estado}
-                    </Badge>
+                  <div className={`flex items-center justify-between mb-3 pb-2 border-b transition-colors duration-200 ${
+                    isBeingDraggedOver ? 'border-blue-400' : 'border-gray-200'
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant={
+                          estado === 'Corregido'
+                            ? 'success'
+                            : estado === 'En Progreso'
+                            ? 'info'
+                            : estado === 'Pendiente'
+                            ? 'warning'
+                            : 'neutral'
+                        }
+                        className="text-xs"
+                      >
+                        {estado}
+                      </Badge>
+                      {isBeingDraggedOver && (
+                        <div className="animate-pulse">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        </div>
+                      )}
+                    </div>
                     <span className="text-xs font-semibold text-gray-600">{columnRecords.length}</span>
                   </div>
 
@@ -1265,8 +1290,10 @@ export default function ProjectDashboard() {
                           onDragStart={() => handleDragStart(record.id)}
                           onDragEnd={handleDragEnd}
                           onClick={() => setRecordModal(record)}
-                          className={`cursor-pointer rounded-lg border border-gray-200 bg-white p-3 transition-all ${
-                            draggingRecordId === record.id ? 'opacity-50' : 'opacity-100'
+                          className={`cursor-move rounded-lg border border-gray-200 bg-white p-3 transition-all duration-200 ${
+                            draggingRecordId === record.id 
+                              ? 'rotate-3 shadow-2xl scale-105 opacity-90' 
+                              : 'opacity-100 hover:shadow-md'
                           }`}
                         >
                           <div className="flex items-start justify-between gap-2 mb-2">
