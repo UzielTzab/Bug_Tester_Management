@@ -4,14 +4,18 @@ import { TestRecord, Project } from '@/types';
 
 const databaseUrl = process.env.DATABASE_URL;
 
-if (!databaseUrl) {
-  throw new Error('DATABASE_URL is not configured. Set it in .env.local');
+const sql = neon(databaseUrl || 'postgresql://placeholder');
+
+function validateDatabase() {
+  if (!databaseUrl) {
+    throw new Error('DATABASE_URL is not configured. Set it in your environment variables.');
+  }
 }
 
-const sql = neon(databaseUrl);
 let schemaReady = false;
 
 async function ensureSchema(): Promise<void> {
+  validateDatabase();
   if (schemaReady) return;
 
   await sql`

@@ -226,13 +226,13 @@ function HomeContent() {
                         {project.actors.slice(0, 3).map((actor, idx) => (
                           <span
                             key={idx}
-                            className="inline-block bg-white bg-opacity-30 text-white text-xs px-2 py-1 rounded-full"
+                            className="inline-block bg-gradient-to-r from-indigo-500 to-blue-500 border border-indigo-700 text-white font-semibold text-xs px-3 py-1 rounded-full shadow-md"
                           >
                             {actor}
                           </span>
                         ))}
                         {project.actors.length > 3 && (
-                          <span className="inline-block bg-white bg-opacity-30 text-white text-xs px-2 py-1 rounded-full">
+                          <span className="inline-block bg-gradient-to-r from-indigo-500 to-blue-500 border border-indigo-700 text-white font-semibold text-xs px-3 py-1 rounded-full shadow-md">
                             +{project.actors.length - 3}
                           </span>
                         )}

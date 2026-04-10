@@ -76,7 +76,7 @@ export default function ProjectDashboard() {
     actors: [] as string[],
   });
   const [formData, setFormData] = useState({
-    actor: 'Cliente' as Actor,
+    actor: '' as any as Actor,
     modulo: '',
     tipoError: 'Funcionalidad' as TipoError,
     device: 'Mobile' as DeviceType,
@@ -373,7 +373,7 @@ export default function ProjectDashboard() {
 
   const resetForm = () => {
     setFormData({
-      actor: 'Cliente',
+      actor: '' as any as Actor,
       modulo: '',
       tipoError: 'Funcionalidad',
       device: 'Mobile',
@@ -448,7 +448,10 @@ export default function ProjectDashboard() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (isLoading) return;
+    if (isLoading || !formData.actor.trim()) {
+      alert('Por favor selecciona un Actor');
+      return;
+    }
     setIsLoading(true);
     try {
       const payload = { ...formData, projectId: currentProjectId } as any;
@@ -800,9 +803,24 @@ export default function ProjectDashboard() {
           size="lg"
         >
           <div onPaste={handlePaste} className="space-y-4">
-            <p className="text-gray-600 text-sm">Todos los campos son opcionales. Puedes pegar imágenes directamente (Ctrl+V).</p>
+            <div className="flex justify-between items-start gap-4 pb-4 border-b border-gray-200">
+              <div>
+                <p className="text-gray-600 text-sm"><strong>Actor *</strong> es obligatorio. Otros campos son opcionales. Puedes pegar imágenes directamente (Ctrl+V).</p>
+              </div>
+              <Button
+                variant="success"
+                type="submit"
+                form="bug-form"
+                disabled={isLoading}
+                loading={isLoading}
+                size="sm"
+                icon={<CheckCircleIcon className="w-4 h-4" />}
+              >
+                {editingId ? 'Actualizar' : 'Guardar'}
+              </Button>
+            </div>
             
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} id="bug-form" className="space-y-6">
               {/* SECCIÓN ARRIBA: Imágenes, Título y Notas Dev */}
               <div className="space-y-4 pb-4 border-b border-gray-200">
                 
@@ -905,20 +923,27 @@ export default function ProjectDashboard() {
                 </div>
               </div>
 
-              {/* SECCIÓN ABAJO: Otros campos */}
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* SECCIÓN ADICIONALES: Campos opcionales - con estilo diferenciado */}
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                  <PlusIcon className="w-4 h-4" />
+                  Campos Adicionales (Opcionales)
+                </h3>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Actor */}
                   <div>
                     <label className="flex items-center gap-2 text-sm font-semibold text-gray-900 mb-2">
-                      <UserIcon className="w-4 h-4 text-blue-600" />
-                      Actor / Tipo Usuario
+                      <UserIcon className="w-4 h-4 text-red-600" />
+                      Actor / Tipo Usuario *
                     </label>
                     <select
                       value={formData.actor}
                       onChange={(e) => setFormData({ ...formData, actor: e.target.value as Actor })}
                       className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all"
+                      required
                     >
+                      <option value="" disabled>Selecciona un actor *</option>
                       {(currentProject?.actors && currentProject.actors.length > 0 ? currentProject.actors : ACTORES).map((a) => (
                         <option key={a} value={a}>{a}</option>
                       ))}
@@ -991,6 +1016,7 @@ export default function ProjectDashboard() {
                     </select>
                   </div>
                 </div>
+              </div>
               </div>
 
               {/* Actions */}
