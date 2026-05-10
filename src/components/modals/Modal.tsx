@@ -22,9 +22,9 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', zIndex = 
   return (
     <div className={`fixed inset-0 bg-black/10 backdrop-blur-md flex items-center justify-center p-4`} style={{ zIndex }}>
 
-      <div className={`w-full ${sizeClasses[size]} bg-white rounded-2xl shadow-2xl border border-gray-200 p-6 sm:p-8 relative`}>
+      <div className={`w-full ${sizeClasses[size]} max-h-[calc(100vh-2rem)] bg-white rounded-2xl shadow-xl border border-slate-200 relative overflow-hidden`}>
         {title && (
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">
+          <h2 className="text-2xl font-bold text-gray-900 px-6 sm:px-8 pt-6 sm:pt-8 mb-6 pr-14">
             {title}
           </h2>
         )}
@@ -36,7 +36,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', zIndex = 
           <XMarkIcon className="w-6 h-6" />
         </button>
 
-        <div className="overflow-y-auto max-h-[calc(100vh-200px)]">
+        <div className="overflow-y-auto max-h-[calc(100vh-8rem)] px-6 sm:px-8 pb-6 sm:pb-8">
           {children}
         </div>
       </div>

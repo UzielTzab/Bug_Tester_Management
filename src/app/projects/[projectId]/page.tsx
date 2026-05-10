@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, type ChangeEvent, type ClipboardEvent, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type ChangeEvent, type ClipboardEvent, type DragEvent, type FormEvent, type KeyboardEvent } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { TestRecord, TipoError, Estado, Actor, DeviceType, Project } from '@/types';
 import { downloadPDF } from '@/lib/pdf';
@@ -30,6 +30,11 @@ import {
   ArrowLeftIcon,
 } from '@heroicons/react/24/outline';
 
+type BugFormData = Omit<TestRecord, 'id' | 'projectId' | 'fechaCreacion' | 'actor'> & {
+  actor: Actor | '';
+};
+
+type BugPayload = Omit<TestRecord, 'id' | 'fechaCreacion'>;
 
 export default function ProjectDashboard() {
   const params = useParams();
@@ -76,8 +81,8 @@ export default function ProjectDashboard() {
     color: 'from-blue-500 to-cyan-500',
     actors: [] as string[],
   });
-  const [formData, setFormData] = useState({
-    actor: '' as any as Actor,
+  const [formData, setFormData] = useState<BugFormData>({
+    actor: '',
     modulo: '',
     tipoError: 'Funcionalidad' as TipoError,
     device: 'Mobile' as DeviceType,
@@ -274,15 +279,18 @@ export default function ProjectDashboard() {
   /**
    * Agregar nuevo actor al proyecto en edición
    */
+  const normalizeActorInput = () => newActorInput.trim().replace(/,$/, '');
+
   const handleAddActor = () => {
-    if (!newActorInput.trim()) return;
-    if (editingProjectData.actors.includes(newActorInput.trim())) {
+    const actor = normalizeActorInput();
+    if (!actor) return;
+    if (editingProjectData.actors.includes(actor)) {
       alert('Este actor ya existe');
       return;
     }
     setEditingProjectData(prev => ({
       ...prev,
-      actors: [...prev.actors, newActorInput.trim()]
+      actors: [...prev.actors, actor]
     }));
     setNewActorInput('');
   };
@@ -301,16 +309,28 @@ export default function ProjectDashboard() {
    * Agregar nuevo actor al proyecto siendo creado
    */
   const handleAddActorCreate = () => {
-    if (!newActorInput.trim()) return;
-    if (newProjectData.actors.includes(newActorInput.trim())) {
+    const actor = normalizeActorInput();
+    if (!actor) return;
+    if (newProjectData.actors.includes(actor)) {
       alert('Este actor ya existe');
       return;
     }
     setNewProjectData(prev => ({
       ...prev,
-      actors: [...prev.actors, newActorInput.trim()]
+      actors: [...prev.actors, actor]
     }));
     setNewActorInput('');
+  };
+
+  const handleActorKeyDown = (e: KeyboardEvent<HTMLInputElement>, mode: 'create' | 'edit') => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      if (mode === 'create') {
+        handleAddActorCreate();
+      } else {
+        handleAddActor();
+      }
+    }
   };
 
   /**
@@ -374,7 +394,7 @@ export default function ProjectDashboard() {
 
   const resetForm = () => {
     setFormData({
-      actor: '' as any as Actor,
+      actor: '',
       modulo: '',
       tipoError: 'Funcionalidad',
       device: 'Mobile',
@@ -394,16 +414,30 @@ export default function ProjectDashboard() {
     return typeof s === 'string' && s.startsWith('data:image');
   };
 
+  const addImageFiles = (files: FileList | File[]) => {
+    Array.from(files)
+      .filter((file) => file.type.startsWith('image/'))
+      .forEach((file) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          setFormData((prev) => ({ ...prev, evidencia: [...prev.evidencia, reader.result as string] }));
+        };
+        reader.readAsDataURL(file);
+      });
+  };
+
   const handleImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      setFormData((prev) => ({ ...prev, evidencia: [...prev.evidencia, result] }));
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    };
-    reader.readAsDataURL(file);
+    if (!e.target.files?.length) return;
+    addImageFiles(e.target.files);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleEvidenceDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.files.length > 0) {
+      addImageFiles(e.dataTransfer.files);
+    }
   };
 
   const handlePaste = (e: ClipboardEvent<HTMLDivElement>) => {
@@ -455,7 +489,7 @@ export default function ProjectDashboard() {
     }
     setIsLoading(true);
     try {
-      const payload = { ...formData, projectId: currentProjectId } as any;
+      const payload: BugPayload = { ...formData, actor: formData.actor as Actor, projectId: currentProjectId };
       if (editingId) {
         await fetch(`/api/records/${editingId}`, {
           method: 'PATCH',
@@ -601,6 +635,18 @@ export default function ProjectDashboard() {
 
   const currentProject = projects.find((p) => p.id === currentProjectId);
 
+  const severityAccentClasses: Record<string, string> = {
+    'DiseÃ±o': 'border-l-[#263a5f]',
+    'Funcionalidad': 'border-l-[#263a5f]',
+    'Rendimiento': 'border-l-[#263a5f]',
+    'Seguridad': 'border-l-[#263a5f]',
+  };
+
+  const getTextareaRows = (value: string, minRows = 2, maxRows = 6) => {
+    const visualLines = value.split('\n').reduce((total, line) => total + Math.max(1, Math.ceil(line.length / 70)), 0);
+    return Math.min(maxRows, Math.max(minRows, visualLines));
+  };
+
   const getFilteredRecords = () => {
     let filtered = records;
 
@@ -628,7 +674,7 @@ export default function ProjectDashboard() {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <Spinner size="lg" color="purple" variant="modern" />
+          <Spinner size="lg" color="navy" variant="modern" />
           <p className="mt-4 text-xl font-semibold text-gray-900">Cargando...</p>
         </div>
       </div>
@@ -636,29 +682,31 @@ export default function ProjectDashboard() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row overflow-x-hidden" style={{ backgroundColor: 'var(--bg-light-gray)' }}>
+    <div className="min-h-screen flex flex-col md:flex-row overflow-x-hidden bg-slate-50 selection:bg-blue-100 selection:text-blue-900">
       {/* Sidebar */}
-      <div className="w-full md:w-64 bg-gradient-to-b from-green-600 to-blue-700 border-b md:border-r border-blue-800 p-4 md:p-6 md:fixed md:h-screen md:overflow-y-auto shadow-lg">
-        <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-          <BugAntIcon className="w-5 h-5" />
+      <div className="w-full md:w-72 bg-[#263a5f] border-b md:border-r border-slate-950/20 p-4 md:p-6 md:fixed md:h-screen md:overflow-y-auto shadow-none z-10">
+        <h2 className="text-lg font-extrabold text-white mb-10 flex items-center gap-2 tracking-tight">
+          <BugAntIcon className="w-6 h-6" />
           Proyecto Actual
         </h2>
         
         <div className="space-y-3 mb-6">
           {currentProject ? (
-            <div className="bg-white text-gray-900 border-2 border-white shadow-md rounded-lg p-3">
-              <div className="flex items-start justify-between gap-2">
+            <div className="bg-white/95 backdrop-blur-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.08)] rounded-2xl p-4 border border-white/10 transition-colors hover:bg-white">
+              <div className="flex items-start justify-between gap-3">
                 <div 
                   onClick={() => router.push('/')}
-                  className="flex items-center gap-2 flex-1 cursor-pointer hover:opacity-80 transition-opacity group"
+                  className="flex items-center gap-3 flex-1 cursor-pointer hover:opacity-80 transition-opacity group"
                   title="Volver a Proyectos"
                 >
-                  <ArrowLeftIcon className="w-4 h-4 text-gray-600 group-hover:text-gray-900 transition-colors flex-shrink-0" />
-                  <span className="text-lg">{currentProject.icon}</span>
-                  <div className="min-w-0">
-                    <div className="font-bold text-sm">{currentProject.name}</div>
+                  <div className="bg-slate-100 p-1.5 rounded-lg group-hover:bg-slate-200 transition-colors">
+                    <ArrowLeftIcon className="w-4 h-4 text-slate-600 group-hover:text-slate-900 transition-colors flex-shrink-0" />
+                  </div>
+                  <span className="text-2xl drop-shadow-sm">{currentProject.icon}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-bold text-sm text-slate-900 truncate">{currentProject.name}</div>
                     {currentProject.description && (
-                      <div className="text-xs text-gray-600">
+                      <div className="text-xs text-slate-500 line-clamp-2 mt-0.5">
                         {currentProject.description}
                       </div>
                     )}
@@ -667,7 +715,7 @@ export default function ProjectDashboard() {
                 <div>
                   <div
                     onClick={() => handleEditProject(currentProject)}
-                    className="p-1 rounded transition-all hover:bg-gray-200 cursor-pointer text-gray-900"
+                    className="p-1.5 rounded-lg transition-all bg-slate-50 hover:bg-blue-50 cursor-pointer text-slate-400 hover:text-blue-600 border border-slate-100 hover:border-blue-200"
                     title="Editar proyecto"
                   >
                     <PencilIcon className="w-4 h-4" />
@@ -684,50 +732,52 @@ export default function ProjectDashboard() {
       </div>
 
       {/* Main Content */}
-      <div className="w-full md:flex-1 md:ml-64 p-4 md:p-6 overflow-x-hidden grid-paper-bg">
+      <div className="w-full md:flex-1 md:ml-72 p-4 md:p-8 overflow-x-hidden">
         <div className="w-full max-w-full overflow-x-hidden">
         {/* Header */}
-        <Card variant="elevated" className="mb-6 md:mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ">
-          <div className="flex items-center gap-2 md:gap-3 min-w-0">
+        <div className="bg-white rounded-[22px] border border-slate-200/80 shadow-[0_1px_3px_rgba(15,23,42,0.06)] mb-6 px-5 py-5 md:px-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={() => router.push('/')}
-              className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-all flex-shrink-0"
+              className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all flex-shrink-0"
               title="Volver a Proyectos"
             >
               <ArrowLeftIcon className="w-5 h-5" />
             </button>
-            <BugAntIcon className="w-6 md:w-8 h-6 md:h-8 text-red-600 flex-shrink-0" />
-            <h1 className="text-xl md:text-3xl font-bold text-gray-900 truncate">{currentProject?.name || 'Proyecto'}</h1>
+            <div className="p-2 rounded-xl text-[#263a5f]">
+              <BugAntIcon className="w-6 md:w-8 h-6 md:h-8 flex-shrink-0" />
+            </div>
+            <h1 className="text-xl md:text-2xl font-extrabold text-slate-900 truncate tracking-tight">{currentProject?.name || 'Proyecto'}</h1>
           </div>
-          <div className="flex gap-2 md:gap-3 w-full md:w-auto flex-wrap md:flex-nowrap">
+          <div className="flex gap-2 md:gap-3 w-full md:w-auto flex-wrap md:flex-nowrap items-center">
             <Button
               variant="secondary"
               icon={<DocumentArrowDownIcon className="w-4 h-4" />}
               onClick={handleExport}
               disabled={records.length === 0 || isLoading}
               loading={isLoading}
-              className="text-xs md:text-sm flex-1 md:flex-none"
+              className="text-xs md:text-sm flex-1 md:flex-none rounded-xl bg-white border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold"
             >
               Exportar PDF
             </Button>
             <Button
-              variant="danger"
+              variant="dangerGhost"
               icon={<TrashIcon className="w-4 h-4" />}
               onClick={() => setShowDeleteAllModal(true)}
               disabled={records.length === 0 || isLoading}
-              className="text-xs md:text-sm flex-1 md:flex-none"
+              className="text-xs md:text-sm flex-1 md:flex-none rounded-xl font-semibold bg-red-500 hover:bg-red-600 text-white border-red-500"
             >
               Limpiar
             </Button>
             
-            {/* View Mode Toggle - Escondido en móviles muy pequeños */}
-            <div className="hidden sm:flex border border-gray-300 rounded-lg overflow-hidden">
+            {/* View Mode Toggle */}
+            <div className="hidden sm:flex bg-slate-100 p-1 rounded-xl">
               <button
                 onClick={() => setViewMode('cards')}
-                className={`px-2 md:px-3 py-2 transition-all text-sm md:text-base ${
+                className={`p-2 rounded-lg transition-all text-sm md:text-base ${
                   viewMode === 'cards'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                    ? 'bg-white text-blue-600 shadow-sm font-semibold'
+                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
                 }`}
                 title="Vista de tarjetas"
               >
@@ -735,10 +785,10 @@ export default function ProjectDashboard() {
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`px-2 md:px-3 py-2 transition-all border-l border-gray-300 text-sm md:text-base ${
+                className={`p-2 rounded-lg transition-all text-sm md:text-base ${
                   viewMode === 'list'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                    ? 'bg-white text-blue-600 shadow-sm font-semibold'
+                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
                 }`}
                 title="Vista de lista"
               >
@@ -746,10 +796,10 @@ export default function ProjectDashboard() {
               </button>
               <button
                 onClick={() => setViewMode('kanban')}
-                className={`px-2 md:px-3 py-2 transition-all border-l border-gray-300 text-sm md:text-base ${
+                className={`p-2 rounded-lg transition-all text-sm md:text-base ${
                   viewMode === 'kanban'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                    ? 'bg-white text-blue-600 shadow-sm font-semibold'
+                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
                 }`}
                 title="Vista de tablero"
               >
@@ -765,41 +815,46 @@ export default function ProjectDashboard() {
                 setShowForm(!showForm);
               }}
               disabled={isLoading}
-              className="text-xs md:text-sm flex-1 md:flex-none"
+              className="text-xs md:text-sm flex-1 md:flex-none rounded-xl bg-[#263a5f] hover:bg-[#1f3152] border-[#263a5f] shadow-[0_1px_2px_rgba(15,23,42,0.08)] font-semibold"
             >
               {showForm ? 'Cerrar' : 'Nuevo Bug'}
             </Button>
           </div>
-        </Card>
+        </div>
 
         {/* Filtros y Búsqueda */}
-        <Card variant="base" className="mb-6 overflow-x-hidden">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-            <Input
-              label="🔍 Buscar"
-              placeholder="Buscar por título, módulo, tipo de error..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+        <div className="bg-white rounded-[22px] border border-slate-200/80 shadow-[0_1px_3px_rgba(15,23,42,0.06)] mb-8 px-5 py-5 md:px-6 overflow-x-hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px_auto] gap-5 items-end">
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2 flex items-center gap-1.5"><span className="text-slate-400">🔍</span> Buscar</label>
+              <input
+                type="text"
+                placeholder="Buscar por título, módulo, tipo de error..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-slate-50/70 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-sm"
+              />
+            </div>
             <div className="min-w-0">
-              <label className="block text-sm font-semibold text-gray-900 mb-2">🏷️ Filtrar por Estado</label>
+              <label className="block text-sm font-bold text-slate-700 mb-2 flex items-center gap-1.5"><span className="text-yellow-500">🏷️</span> Filtrar por Estado</label>
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value as Estado | 'Todos')}
-                className="w-full px-3 md:px-4 py-2 border-2 border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-all duration-200"
+                className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-slate-50/70 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all cursor-pointer"
               >
-                <option value="Todos">Todos</option>
+                <option value="Todos">Todos los estados</option>
                 {ESTADOS.map((estado) => (
                   <option key={estado} value={estado}>{estado}</option>
                 ))}
               </select>
             </div>
+            <div className="lg:self-end">
+            <div className="text-xs md:text-sm font-semibold text-slate-500 whitespace-nowrap px-1 py-3">
+              Mostrando <span className="text-slate-900">{getFilteredRecords().length}</span> de <span className="text-slate-900">{records.length}</span> registros
+            </div>
+            </div>
           </div>
-          
-          <div className="mt-3 text-xs md:text-sm font-semibold text-gray-900">
-            Mostrando {getFilteredRecords().length} de {records.length} registros
-          </div>
-        </Card>
+        </div>
 
         {/* Form Modal */}
         <Modal
@@ -817,7 +872,7 @@ export default function ProjectDashboard() {
                 <p className="text-gray-600 text-sm"><strong>Actor *</strong> es obligatorio. Otros campos son opcionales. Puedes pegar imágenes directamente (Ctrl+V).</p>
               </div>
               <Button
-                variant="success"
+                variant="primary"
                 type="submit"
                 form="bug-form"
                 disabled={isLoading}
@@ -839,49 +894,46 @@ export default function ProjectDashboard() {
                     <PhotoIcon className="w-4 h-4 text-blue-600" />
                     Evidencia (Imágenes/Links)
                   </label>
-                  <div className="flex gap-2 mb-2">
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => fileInputRef.current?.click()}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={handleEvidenceDrop}
+                    className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center cursor-pointer transition-all hover:border-blue-300 hover:bg-blue-50/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
                     <input
                       ref={fileInputRef}
                       type="file"
                       accept="image/*"
+                      multiple
                       onChange={handleImageUpload}
                       className="hidden"
                     />
-                    <Button
-                      type="button"
-                      variant="warning"
-                      size="sm"
-                      icon={<PhotoIcon className="w-4 h-4" />}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        fileInputRef.current?.click();
-                      }}
-                    >
-                      Agregar Imagen
-                    </Button>
-                    {formData.evidencia.length > 0 && (
-                      <span className="text-gray-900 text-sm self-center font-medium">
-                        ({formData.evidencia.length} imagen{formData.evidencia.length !== 1 ? 'es' : ''})
-                      </span>
-                    )}
+                    <PhotoIcon className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                    <p className="text-sm font-semibold text-slate-700">Arrastra tus imÃ¡genes aquÃ­, pega (Ctrl+V) o haz clic para subir</p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {formData.evidencia.length > 0
+                        ? `${formData.evidencia.length} imagen${formData.evidencia.length !== 1 ? 'es' : ''} adjunta${formData.evidencia.length !== 1 ? 's' : ''}`
+                        : 'PNG, JPG o capturas pegadas desde el portapapeles'}
+                    </p>
                   </div>
                   {formData.evidencia.length > 0 && (
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 mt-3">
                       {formData.evidencia.map((img, idx) => (
                         <div key={idx} className="relative group">
                           <img
                             src={img}
                             alt={`Evidencia ${idx + 1}`}
-                            className="w-full h-20 object-cover rounded-lg border-2 border-gray-300 cursor-pointer hover:opacity-80"
+                            className="w-full aspect-square object-cover rounded-xl border border-slate-200 cursor-pointer hover:opacity-90 shadow-sm"
                             onClick={() => setImageModal(img)}
                             title="Clic para ver en grande"
                           />
-                          <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                          <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition">
                             <button
                               type="button"
                               onClick={() => handleEditImage(idx)}
-                              className="bg-blue-600 hover:bg-blue-700 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs transition"
+                              className="bg-blue-600 hover:bg-blue-700 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs transition shadow-sm"
                               title="Editar imagen"
                             >
                               ✏️
@@ -889,7 +941,7 @@ export default function ProjectDashboard() {
                             <button
                               type="button"
                               onClick={() => setFormData({ ...formData, evidencia: formData.evidencia.filter((_, i) => i !== idx) })}
-                              className="bg-red-600 hover:bg-red-700 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs transition"
+                              className="bg-red-600 hover:bg-red-700 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs transition shadow-sm"
                               title="Eliminar imagen"
                             >
                               ✕
@@ -904,29 +956,29 @@ export default function ProjectDashboard() {
                 {/* Título como Textarea */}
                 <div>
                   <label className="flex items-center gap-2 text-sm font-semibold text-gray-900 mb-2">
-                    <PencilSquareIcon className="w-4 h-4 text-blue-600" />
+                    <PencilSquareIcon className="w-4 h-4 text-slate-400" />
                     Título del Error / Observación
                   </label>
                   <textarea
                     value={formData.titulo}
                     onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
-                    rows={2}
+                    rows={getTextareaRows(formData.titulo, 2, 5)}
                     placeholder="Descripción breve del bug u observación"
-                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all"
+                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all resize-none overflow-hidden"
                   />
                 </div>
 
                 {/* Notas Dev */}
                 <div>
                   <label className="flex items-center gap-2 text-sm font-semibold text-gray-900 mb-2">
-                    <DocumentTextIcon className="w-4 h-4 text-blue-600" />
+                    <DocumentTextIcon className="w-4 h-4 text-slate-400" />
                     Notas Dev
                   </label>
                   <textarea
                     value={formData.notasDev}
                     onChange={(e) => setFormData({ ...formData, notasDev: e.target.value })}
-                    rows={2}
-                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all"
+                    rows={getTextareaRows(formData.notasDev, 2, 6)}
+                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all resize-none overflow-hidden"
                     placeholder="Notas para desarrollo..."
                   />
                 </div>
@@ -943,7 +995,7 @@ export default function ProjectDashboard() {
                   {/* Actor */}
                   <div>
                     <label className="flex items-center gap-2 text-sm font-semibold text-gray-900 mb-2">
-                      <UserIcon className="w-4 h-4 text-red-600" />
+                      <UserIcon className="w-4 h-4 text-slate-400" />
                       Actor / Tipo Usuario *
                     </label>
                     <select
@@ -962,7 +1014,7 @@ export default function ProjectDashboard() {
                   {/* Módulo */}
                   <div>
                     <label className="flex items-center gap-2 text-sm font-semibold text-gray-900 mb-2">
-                      <MapPinIcon className="w-4 h-4 text-blue-600" />
+                      <MapPinIcon className="w-4 h-4 text-slate-400" />
                       Módulo / Página
                     </label>
                     <input
@@ -977,7 +1029,7 @@ export default function ProjectDashboard() {
                   {/* Tipo de Error */}
                   <div>
                     <label className="flex items-center gap-2 text-sm font-semibold text-gray-900 mb-2">
-                      <ExclamationTriangleIcon className="w-4 h-4 text-blue-600" />
+                      <ExclamationTriangleIcon className="w-4 h-4 text-slate-400" />
                       Tipo de Error
                     </label>
                     <select
@@ -994,7 +1046,7 @@ export default function ProjectDashboard() {
                   {/* Dispositivo */}
                   <div>
                     <label className="flex items-center gap-2 text-sm font-semibold text-gray-900 mb-2">
-                      <DevicePhoneMobileIcon className="w-4 h-4 text-blue-600" />
+                      <DevicePhoneMobileIcon className="w-4 h-4 text-slate-400" />
                       Dispositivo
                     </label>
                     <select
@@ -1011,7 +1063,7 @@ export default function ProjectDashboard() {
                   {/* Estado */}
                   <div>
                     <label className="flex items-center gap-2 text-sm font-semibold text-gray-900 mb-2">
-                      <FlagIcon className="w-4 h-4 text-blue-600" />
+                      <FlagIcon className="w-4 h-4 text-slate-400" />
                       Estado
                     </label>
                     <select
@@ -1029,9 +1081,9 @@ export default function ProjectDashboard() {
               </div>
 
               {/* Actions */}
-              <div className="flex gap-4 pt-4 border-t border-gray-200">
+              <div className="sticky bottom-0 -mx-6 sm:-mx-8 -mb-6 sm:-mb-8 flex gap-4 border-t border-gray-200 bg-white/95 backdrop-blur px-6 sm:px-8 py-4">
                 <Button
-                  variant="success"
+                  variant="primary"
                   type="submit"
                   disabled={isLoading}
                   loading={isLoading}
@@ -1040,7 +1092,7 @@ export default function ProjectDashboard() {
                   {editingId ? 'Actualizar' : 'Guardar'}
                 </Button>
                 <Button
-                  variant="secondary"
+                  variant="ghost"
                   type="button"
                   onClick={() => {
                     resetForm();
@@ -1231,56 +1283,50 @@ export default function ProjectDashboard() {
           </div>
         ) : (
           /* Kanban View */
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-7">
             {ESTADOS.map((estado) => {
               const columnRecords = getFilteredRecords().filter((r) => r.estado === estado);
               const isBeingDraggedOver = dragOverStatus === estado;
               
+              const badgeColors: Record<string, string> = {
+                'Pendiente': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                'En Progreso': 'bg-blue-100 text-blue-800 border-blue-200',
+                'Corregido': 'bg-green-100 text-green-800 border-green-200',
+                'No es un Error': 'bg-slate-100 text-slate-800 border-slate-200'
+              };
+              
               return (
                 <div
                   key={estado}
-                  className={`rounded-lg transition-all duration-200 p-3 min-h-[320px] ${
+                  className={`rounded-3xl transition-all duration-300 flex flex-col ${
                     isBeingDraggedOver
-                      ? 'border-2 border-blue-500 bg-blue-50 shadow-lg scale-102'
-                      : 'border border-gray-200 bg-white'
+                      ? 'bg-blue-50/50 ring-2 ring-blue-300'
+                      : 'border border-transparent bg-transparent'
                   }`}
                   onDragOver={(e) => handleDragOverColumn(e, estado)}
                   onDragLeave={handleDragLeaveColumn}
                   onDrop={() => handleDropStatus(estado)}
                 >
-                  <div className={`flex items-center justify-between mb-3 pb-2 border-b transition-colors duration-200 ${
-                    isBeingDraggedOver ? 'border-blue-400' : 'border-gray-200'
-                  }`}>
+                  <div className="flex items-center justify-between mb-5 px-1">
                     <div className="flex items-center gap-2">
-                      <Badge
-                        variant={
-                          estado === 'Corregido'
-                            ? 'success'
-                            : estado === 'En Progreso'
-                            ? 'info'
-                            : estado === 'Pendiente'
-                            ? 'warning'
-                            : 'neutral'
-                        }
-                        className="text-xs"
-                      >
+                      <span className={`px-3 py-1.5 rounded-full text-xs font-bold border ${badgeColors[estado] || badgeColors['Pendiente']}`}>
                         {estado}
-                      </Badge>
+                      </span>
                       {isBeingDraggedOver && (
                         <div className="animate-pulse">
                           <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                         </div>
                       )}
                     </div>
-                    <span className="text-xs font-semibold text-gray-600">{columnRecords.length}</span>
+                    <span className="text-xs font-bold text-slate-600 bg-slate-100 border border-slate-200 min-w-7 h-7 px-2 flex items-center justify-center rounded-full shadow-[0_1px_2px_rgba(15,23,42,0.04)]">{columnRecords.length}</span>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className={`space-y-4 flex-1 min-h-[360px] rounded-2xl transition-colors ${isBeingDraggedOver ? 'bg-blue-50/30 p-3' : 'bg-transparent'}`}>
                     {isLoadingProject ? (
-                      <SkeletonLoader count={2} height="h-24" className="rounded-lg" />
+                      <SkeletonLoader count={2} height="h-24" className="rounded-2xl" />
                     ) : columnRecords.length === 0 ? (
-                      <div className="text-xs text-gray-500 text-center py-6 border border-dashed border-gray-200 rounded-lg">
-                        Arrastra bugs aqui
+                      <div className="text-xs text-slate-400 text-center py-10 border-2 border-dashed border-slate-200/70 rounded-2xl flex items-center justify-center h-full min-h-[360px]">
+                        Arrastra bugs aquí
                       </div>
                     ) : (
                       columnRecords.map((record) => (
@@ -1290,31 +1336,29 @@ export default function ProjectDashboard() {
                           onDragStart={() => handleDragStart(record.id)}
                           onDragEnd={handleDragEnd}
                           onClick={() => setRecordModal(record)}
-                          className={`cursor-move rounded-lg border border-gray-200 bg-white p-3 transition-all duration-200 ${
+                          className={`group cursor-grab active:cursor-grabbing rounded-xl border border-l-4 ${record.tipoError ? severityAccentClasses[record.tipoError] : 'border-l-[#263a5f]'} border-slate-200 bg-white p-5 transition-all duration-200 ${
                             draggingRecordId === record.id 
-                              ? 'rotate-3 shadow-2xl scale-105 opacity-90' 
-                              : 'opacity-100 hover:shadow-md'
+                              ? 'rotate-1 shadow-[0_10px_24px_rgba(15,23,42,0.14)] scale-[1.02] opacity-90 z-10 relative' 
+                              : 'opacity-100 shadow-[0_1px_3px_rgba(15,23,42,0.08)] hover:shadow-[0_8px_18px_rgba(15,23,42,0.10)] hover:border-slate-300 hover:-translate-y-0.5'
                           }`}
                         >
-                          <div className="flex items-start justify-between gap-2 mb-2">
-                            <h3 className={`font-bold text-sm text-gray-900 line-clamp-2 ${record.estado === 'Corregido' ? 'line-through text-gray-600' : ''}`}>
+                          <div className="flex items-start justify-between gap-3 mb-4">
+                            <h3 className={`font-bold text-sm md:text-base text-slate-950 leading-snug ${record.estado === 'Corregido' ? 'line-through text-slate-500' : ''}`}>
                               {record.titulo || '-'}
                             </h3>
-                            {record.estado === 'Corregido' && <CheckCircleIcon className="w-5 h-5 text-green-600 flex-shrink-0" />}
                           </div>
 
-                          <div className="flex flex-wrap gap-1 mb-2">
-                            {record.tipoError && <Badge variant="neutral" className="text-[10px] bg-purple-100 text-purple-800">{record.tipoError}</Badge>}
-                            {record.device && <Badge variant="neutral" className="text-[10px] bg-purple-200 text-purple-900">{record.device}</Badge>}
-                          </div>
-
-                          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                          <div className="flex items-center justify-between gap-3 pt-4 border-t border-slate-100">
+                            <div className="flex flex-wrap gap-1.5">
+                              {record.tipoError && <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">{record.tipoError}</span>}
+                              {record.device && <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">{record.device}</span>}
+                            </div>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleEdit(record);
                               }}
-                              className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-all"
+                              className="text-slate-400 hover:text-blue-600 transition-colors"
                               title="Editar"
                             >
                               <PencilIcon className="w-4 h-4" />
@@ -1324,7 +1368,7 @@ export default function ProjectDashboard() {
                                 e.stopPropagation();
                                 handleDelete(record.id);
                               }}
-                              className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-all"
+                              className="text-slate-400 hover:text-red-500 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
                               title="Eliminar"
                             >
                               <TrashIcon className="w-4 h-4" />
@@ -1549,10 +1593,10 @@ export default function ProjectDashboard() {
                     type="text"
                     value={newActorInput}
                     onChange={(e) => setNewActorInput(e.target.value)}
-                    placeholder="Ej: Cliente, Proveedor, Admin..."
+                    placeholder="Escribe un actor y presiona Enter o coma"
                     disabled={isLoading}
-                    onKeyPress={(e) => e.key === 'Enter' && handleAddActorCreate()}
-                    className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all"
+                    onKeyDown={(e) => handleActorKeyDown(e, 'create')}
+                    className="flex-1 px-4 py-2 border border-slate-200 rounded-lg bg-slate-50 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all"
                   />
                   <Button
                     type="button"
@@ -1566,14 +1610,14 @@ export default function ProjectDashboard() {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {newProjectData.actors?.map((actor, idx) => (
-                    <div key={idx} className="bg-blue-100 text-blue-900 px-3 py-1 rounded-full flex items-center gap-2 text-sm">
+                    <div key={idx} className="bg-gray-100 text-gray-600 border border-gray-200 px-3 py-1 rounded-full flex items-center gap-2 text-sm font-medium">
                       {actor}
                       <button
                         type="button"
                         onClick={() => {
                           handleRemoveActorCreate(idx);
                         }}
-                        className="text-blue-600 hover:text-blue-800 font-bold"
+                        className="text-slate-400 hover:text-red-500 font-bold"
                       >
                         ✕
                       </button>
@@ -1600,10 +1644,10 @@ export default function ProjectDashboard() {
             </div>
 
             <div className="flex gap-3 pt-4 border-t">
-              <Button variant="secondary" className="flex-1" type="button" onClick={() => setShowNewProjectModal(false)} disabled={isLoading}>
+              <Button variant="ghost" className="flex-1" type="button" onClick={() => setShowNewProjectModal(false)} disabled={isLoading}>
                 Cancelar
               </Button>
-              <Button variant="success" className="flex-1" type="submit" disabled={isLoading || !newProjectData.name.trim()} loading={isLoading}>
+              <Button variant="primary" className="flex-1" type="submit" disabled={isLoading || !newProjectData.name.trim()} loading={isLoading}>
                 Crear Proyecto
               </Button>
             </div>
@@ -1655,10 +1699,10 @@ export default function ProjectDashboard() {
                   type="text"
                   value={newActorInput}
                   onChange={(e) => setNewActorInput(e.target.value)}
-                  placeholder="Ej: Cliente, Proveedor, Admin..."
+                  placeholder="Escribe un actor y presiona Enter o coma"
                   disabled={isLoading}
-                  onKeyPress={(e) => e.key === 'Enter' && handleAddActor()}
-                  className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all"
+                  onKeyDown={(e) => handleActorKeyDown(e, 'edit')}
+                  className="flex-1 px-4 py-2 border border-slate-200 rounded-lg bg-slate-50 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all"
                 />
                 <Button
                   type="button"
@@ -1672,12 +1716,12 @@ export default function ProjectDashboard() {
               </div>
               <div className="flex flex-wrap gap-2">
                 {editingProjectData.actors?.map((actor, idx) => (
-                  <div key={idx} className="bg-blue-100 text-blue-900 px-3 py-1 rounded-full flex items-center gap-2 text-sm">
+                  <div key={idx} className="bg-gray-100 text-gray-600 border border-gray-200 px-3 py-1 rounded-full flex items-center gap-2 text-sm font-medium">
                     {actor}
                     <button
                       type="button"
                       onClick={() => handleRemoveActor(idx)}
-                      className="text-blue-600 hover:text-blue-800 font-bold"
+                      className="text-slate-400 hover:text-red-500 font-bold"
                     >
                       ×
                     </button>
@@ -1690,10 +1734,10 @@ export default function ProjectDashboard() {
               <Button variant="danger" className="flex-1" type="button" onClick={() => setShowDeleteProjectModal(true)} disabled={isLoading} loading={isLoading}>
                 Eliminar
               </Button>
-              <Button variant="secondary" className="flex-1" type="button" onClick={handleCancelProjectEdit} disabled={isLoading}>
+              <Button variant="ghost" className="flex-1" type="button" onClick={handleCancelProjectEdit} disabled={isLoading}>
                 Cancelar
               </Button>
-              <Button variant="success" className="flex-1" type="submit" disabled={isLoading || !editingProjectData.name.trim()} loading={isLoading}>
+              <Button variant="primary" className="flex-1" type="submit" disabled={isLoading || !editingProjectData.name.trim()} loading={isLoading}>
                 Guardar Cambios
               </Button>
             </div>

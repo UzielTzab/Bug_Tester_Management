@@ -115,16 +115,24 @@ function HomeContent() {
   };
 
   const handleAddActor = () => {
-    if (!newActorInput.trim()) return;
-    if (newProjectData.actors.includes(newActorInput.trim())) {
+    const actor = newActorInput.trim().replace(/,$/, '');
+    if (!actor) return;
+    if (newProjectData.actors.includes(actor)) {
       alert('Este actor ya existe');
       return;
     }
     setNewProjectData((prev) => ({
       ...prev,
-      actors: [...prev.actors, newActorInput.trim()],
+      actors: [...prev.actors, actor],
     }));
     setNewActorInput('');
+  };
+
+  const handleActorKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      handleAddActor();
+    }
   };
 
   const handleRemoveActor = (index: number) => {
@@ -137,26 +145,29 @@ function HomeContent() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Spinner size="lg" />
+        <Spinner size="lg" color="navy" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen p-4 md:p-8" style={{ backgroundColor: 'var(--bg-light-gray)' }}>
+    <div className="min-h-screen p-4 md:p-8 bg-slate-50 selection:bg-blue-100 selection:text-blue-900">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8 md:mb-12 flex items-start justify-between">
+        <div className="mb-8 md:mb-12 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              <BugAntIcon className="w-8 md:w-10 h-8 md:h-10 text-red-600" />
-              <h1 className="text-3xl md:text-4xl font-bold text-gray-900">QA Bug Tracker</h1>
+              <div className="p-2.5 bg-[#263a5f]/10 rounded-xl text-[#263a5f] shadow-sm">
+                <BugAntIcon className="w-8 h-8 md:w-10 md:h-10" />
+              </div>
+              <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">QA Bug Tracker</h1>
             </div>
-            <p className="text-gray-600 text-sm md:text-base">Selecciona un proyecto para comenzar a registrar y seguir bugs</p>
+            <p className="text-slate-500 text-sm md:text-base font-medium ml-1">Selecciona un proyecto para comenzar a registrar y seguir bugs</p>
           </div>
           <Button
-            variant="success"
+            variant="primary"
             size="lg"
+            className="shadow-sm hover:shadow-md transition-all rounded-xl"
             icon={<PlusCircleIcon className="w-5 h-5" />}
             onClick={() => setShowNewProjectModal(true)}
           >
@@ -189,50 +200,59 @@ function HomeContent() {
 
         {/* Projects Grid */}
         {projects.length === 0 ? (
-          <Card variant="elevated" className="text-center py-12 md:py-16">
-            <BugAntIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600 mb-6">No hay proyectos creados aún</p>
+          <div className="text-center py-20 px-6 bg-white border border-slate-200 rounded-3xl shadow-sm max-w-3xl mx-auto">
+            <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
+              <BugAntIcon className="w-10 h-10 text-slate-400" />
+            </div>
+            <h3 className="text-xl font-bold text-slate-900 mb-2">Ningún proyecto todavía</h3>
+            <p className="text-slate-500 mb-8 max-w-md mx-auto">Comienza creando tu primer proyecto para mantener un registro detallado de todos los bugs y mejoras.</p>
             <Button
-              variant="success"
+              variant="primary"
+              size="lg"
+              className="rounded-xl"
               onClick={() => setShowNewProjectModal(true)}
-              icon={<PlusCircleIcon className="w-4 h-4" />}
+              icon={<PlusCircleIcon className="w-5 h-5" />}
             >
               Crear Primer Proyecto
             </Button>
-          </Card>
+          </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             {projects.map((project) => {
               const bugCount = projectBugCounts[project.id] ?? 0;
               return (
-                <Card
+                <div
                   key={project.id}
-                  variant="elevated"
-                  className={`cursor-pointer transition-all hover:shadow-lg group h-full flex flex-col bg-gradient-to-br ${project.color}`}
+                  onClick={() => router.push(`/projects/${project.id}`)}
+                  className="group relative flex flex-col bg-white rounded-2xl border border-slate-200 p-6 cursor-pointer shadow-sm hover:shadow-md hover:border-slate-300 hover:-translate-y-0.5 transition-all duration-300 overflow-hidden"
                 >
+                  <div className={`absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r ${project.color || 'from-slate-400 to-slate-500'}`}></div>
                   <div className="flex-1">
-                    <div className="flex items-start justify-between gap-2 mb-3">
-                      <span className="text-4xl">{project.icon}</span>
-                      <div className="px-3 py-1 bg-white bg-opacity-90 rounded-full text-sm font-bold text-gray-900">
-                        {bugCount} 🐛
+                    <div className="flex items-start justify-between gap-4 mb-4">
+                      <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center text-3xl border border-slate-100 shadow-sm group-hover:scale-105 transition-transform duration-300">
+                        {project.icon}
+                      </div>
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#263a5f]/10 border border-[#263a5f]/15 rounded-full">
+                        <span className="text-sm font-extrabold text-[#263a5f]">{bugCount}</span>
+                        <BugAntIcon className="w-4 h-4 text-[#263a5f]" />
                       </div>
                     </div>
-                    <h2 className="text-xl font-bold text-white mb-2">{project.name}</h2>
+                    <h2 className="text-xl font-bold text-slate-900 mb-2 group-hover:text-blue-600 transition-colors">{project.name}</h2>
                     {project.description && (
-                      <p className="text-white text-opacity-90 text-sm mb-4">{project.description}</p>
+                      <p className="text-slate-500 text-sm mb-6 line-clamp-2 leading-relaxed">{project.description}</p>
                     )}
                     {project.actors && project.actors.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
+                      <div className="flex flex-wrap gap-2 mt-auto">
                         {project.actors.slice(0, 3).map((actor, idx) => (
                           <span
                             key={idx}
-                            className="inline-block bg-gradient-to-r from-indigo-500 to-blue-500 border border-indigo-700 text-white font-semibold text-xs px-3 py-1 rounded-full shadow-md"
+                            className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-gray-100 text-gray-600 border border-gray-200"
                           >
                             {actor}
                           </span>
                         ))}
                         {project.actors.length > 3 && (
-                          <span className="inline-block bg-gradient-to-r from-indigo-500 to-blue-500 border border-indigo-700 text-white font-semibold text-xs px-3 py-1 rounded-full shadow-md">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-gray-100 text-gray-600 border border-gray-200">
                             +{project.actors.length - 3}
                           </span>
                         )}
@@ -240,17 +260,11 @@ function HomeContent() {
                     )}
                   </div>
 
-                  <div className="mt-4 pt-4 border-t border-white border-opacity-20 flex gap-2">
-                    <Button
-                      variant="secondary"
-                      className="flex-1"
-                      onClick={() => router.push(`/projects/${project.id}`)}
-                      icon={<ArrowRightIcon className="w-4 h-4" />}
-                    >
-                      Abrir
-                    </Button>
+                  <div className="mt-6 pt-5 border-t border-slate-100 flex items-center justify-between text-blue-600 font-semibold text-sm">
+                    <span>Ver detalles</span>
+                    <ArrowRightIcon className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </div>
-                </Card>
+                </div>
               );
             })}
           </div>
@@ -266,77 +280,67 @@ function HomeContent() {
         >
           <form onSubmit={handleCreateProject} className="space-y-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-900 mb-2">Nombre del Proyecto *</label>
+              <label className="block text-sm font-bold text-slate-700 mb-2">Nombre del Proyecto <span className="text-red-500">*</span></label>
               <input
                 type="text"
                 value={newProjectData.name}
                 onChange={(e) => setNewProjectData({ ...newProjectData, name: e.target.value })}
-                placeholder="ej: Proyecto Beta"
+                placeholder="ej: Aplicación iOS"
                 disabled={isLoading}
                 maxLength={50}
                 required
-                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all"
+                className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-slate-50 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-900 mb-2">Descripción (opcional)</label>
+              <label className="block text-sm font-bold text-slate-700 mb-2">Descripción (opcional)</label>
               <textarea
                 value={newProjectData.description}
                 onChange={(e) => setNewProjectData({ ...newProjectData, description: e.target.value })}
-                placeholder="Descripción breve del proyecto..."
+                placeholder="Breve propósito del proyecto..."
                 disabled={isLoading}
-                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all resize-none"
-                rows={2}
+                className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-slate-50 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all resize-none"
+                rows={3}
                 maxLength={100}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-900 mb-2">Tipos de Actores (Usuarios)</label>
-              <div className="flex gap-2 mb-2">
+              <label className="block text-sm font-bold text-slate-700 mb-2">Tipos de Actores (Usuarios)</label>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 focus-within:ring-2 focus-within:ring-blue-500 focus-within:bg-white transition-all">
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {newProjectData.actors?.map((actor, idx) => (
+                    <div key={idx} className="bg-white border border-slate-200 shadow-sm text-slate-700 px-3 py-1.5 rounded-full flex items-center gap-2 text-sm font-medium">
+                      {actor}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveActor(idx)}
+                        className="text-slate-400 hover:text-red-500 transition-colors focus:outline-none"
+                        aria-label={`Quitar ${actor}`}
+                      >
+                        <XMarkIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
                 <input
                   type="text"
                   value={newActorInput}
                   onChange={(e) => setNewActorInput(e.target.value)}
-                  placeholder="Ej: Cliente, Proveedor..."
+                  placeholder="Escribe un actor y presiona Enter o coma"
                   disabled={isLoading}
-                  onKeyPress={(e) => e.key === 'Enter' && handleAddActor()}
-                  className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all"
+                  onKeyDown={handleActorKeyDown}
+                  className="w-full min-w-0 bg-transparent px-1 py-1.5 text-slate-900 placeholder-slate-400 focus:outline-none"
                 />
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="md"
-                  onClick={handleAddActor}
-                  disabled={isLoading}
-                >
-                  Agregar
-                </Button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {newProjectData.actors?.map((actor, idx) => (
-                  <div key={idx} className="bg-blue-100 text-blue-900 px-3 py-1 rounded-full flex items-center gap-2 text-sm">
-                    {actor}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        handleRemoveActor(idx);
-                      }}
-                      className="text-blue-600 hover:text-blue-800 font-bold text-lg"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
               </div>
             </div>
 
-            <div className="flex gap-2 pt-4 border-t">
+            <div className="flex gap-3 pt-6 mt-2 border-t border-slate-100">
               <Button
                 type="button"
-                variant="secondary"
-                className="flex-1"
+                variant="ghost"
+                className="flex-1 py-2.5 rounded-xl font-semibold"
                 onClick={() => setShowNewProjectModal(false)}
                 disabled={isLoading}
               >
@@ -344,11 +348,11 @@ function HomeContent() {
               </Button>
               <Button
                 type="submit"
-                variant="success"
-                className="flex-1"
+                variant="primary"
+                className="flex-1 py-2.5 rounded-xl bg-[#263a5f] hover:bg-[#1f3152] text-white font-semibold border-none shadow-sm"
                 loading={isLoading}
               >
-                Crear
+                Crear Proyecto
               </Button>
             </div>
           </form>
@@ -362,7 +366,7 @@ export default function Home() {
   return (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Spinner size="lg" />
+        <Spinner size="lg" color="navy" />
       </div>
     }>
       <HomeContent />

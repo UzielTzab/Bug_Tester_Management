@@ -6,9 +6,9 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 const variantClasses = {
-  base: 'bg-white rounded-lg border border-gray-200 p-4',
-  elevated: 'bg-white rounded-lg border border-gray-300 p-6',
-  compact: 'bg-white rounded-lg border border-gray-200 p-3',
+  base: 'bg-white rounded-xl border border-slate-200 p-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)]',
+  elevated: 'bg-white rounded-xl border border-slate-200 p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]',
+  compact: 'bg-white rounded-xl border border-slate-200 p-3 shadow-[0_1px_2px_rgba(15,23,42,0.05)]',
 };
 
 export function Card({ variant = 'base', children, className, ...props }: CardProps) {

@@ -2,7 +2,7 @@ import React from 'react';
 
 interface SpinnerProps {
   size?: 'sm' | 'md' | 'lg';
-  color?: 'blue' | 'purple' | 'green' | 'red';
+  color?: 'blue' | 'navy' | 'purple' | 'green' | 'red';
   variant?: 'default' | 'modern' | 'gradient';
 }
 
@@ -15,6 +15,7 @@ export function Spinner({ size = 'md', color = 'blue', variant = 'modern' }: Spi
 
   const colorMap = {
     blue: { primary: '#2563eb', secondary: '#3b82f6' },
+    navy: { primary: '#263a5f', secondary: '#415b89' },
     purple: { primary: '#9333ea', secondary: '#c084fc' },
     green: { primary: '#16a34a', secondary: '#4ade80' },
     red: { primary: '#dc2626', secondary: '#ef4444' },
