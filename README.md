@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# QA Bug Tracker Dashboard
 
-## Getting Started
+Sistema web para registrar, revisar y exportar bugs por proyecto. La app esta construida con Next.js App Router, React, TypeScript, Tailwind CSS y Neon PostgreSQL.
 
-First, run the development server:
+## Inicio rapido
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abrir `http://localhost:4567`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Variables locales esperadas:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```env
+DATABASE_URL="postgresql://USER:PASSWORD@HOST/DB?sslmode=require"
+```
 
-## Learn More
+## Scripts
 
-To learn more about Next.js, take a look at the following resources:
+- `npm run dev`: servidor local Next.js en el puerto `4567`.
+- `npm run build`: build de produccion.
+- `npm run start`: sirve el build en el puerto `4567`.
+- `npm run lint`: ejecuta ESLint.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Arquitectura corta
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```mermaid
+flowchart LR
+  UI["Client UI: src/app/*"] --> API["Route handlers: src/app/api/*"]
+  API --> DB["Server data layer: src/lib/db.ts"]
+  DB --> Neon["Neon PostgreSQL"]
+  UI --> Components["src/components/ui"]
+  UI --> Config["src/lib/config.ts + src/types"]
+```
 
-## Deploy on Vercel
+- `src/app/page.tsx`: dashboard de proyectos.
+- `src/app/projects/[projectId]/page.tsx`: dashboard principal de bugs, filtros, vistas `cards/list/kanban`, editor de evidencia y exportacion PDF.
+- `src/app/api/projects/*`: CRUD de proyectos.
+- `src/app/api/records/*`: CRUD de registros de bugs.
+- `src/lib/db.ts`: unica capa de persistencia. Usa `server-only` y `DATABASE_URL`.
+- `src/types/index.ts`: tipos de dominio compartidos.
+- `src/lib/config.ts`: catalogos editables de estados, tipos de error, actores y dispositivos.
+- `src/components/ui/*`: componentes base reutilizables.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Documentacion del proyecto
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [Guia de arquitectura y reglas](docs/PROJECT_GUIDE.md)
+- [Migracion a Neon](docs/NEON_MIGRATION.md)
+- [Principios de ingenieria](docs/SKILLS.md)
+- [Contexto UX/UI](docs/ux_ui_skill.md)
+
+## Reglas criticas
+
+- No importar `src/lib/db.ts` desde componentes cliente. El frontend debe hablar con `/api/*`.
+- No exponer `DATABASE_URL` ni secretos en cliente.
+- Mantener tipos y catalogos sincronizados entre `src/types/index.ts`, `src/lib/config.ts` y la UI.
+- Reusar `@/components` y Tailwind antes de crear nuevos estilos aislados.
+- El proyecto `sumo` es el proyecto por defecto y esta protegido contra eliminacion en la capa DB.
+- `DELETE /api/records` elimina todos los registros, no solo los del proyecto activo.

@@ -761,11 +761,11 @@ export default function ProjectDashboard() {
               Exportar PDF
             </Button>
             <Button
-              variant="dangerGhost"
+              variant="danger"
               icon={<TrashIcon className="w-4 h-4" />}
               onClick={() => setShowDeleteAllModal(true)}
               disabled={records.length === 0 || isLoading}
-              className="text-xs md:text-sm flex-1 md:flex-none rounded-xl font-semibold bg-red-500 hover:bg-red-600 text-white border-red-500"
+              className="text-xs md:text-sm flex-1 md:flex-none rounded-xl font-semibold bg-red-600 hover:bg-red-700 border-red-600 hover:border-red-700 text-white"
             >
               Limpiar
             </Button>
